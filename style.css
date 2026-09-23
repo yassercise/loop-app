@@ -82,7 +82,7 @@ input{ font-family: inherit; }
 
 /* ---- Top bar ---- */
 .topbar{
-  display:flex; align-items:center; justify-content:space-between;
+  display:flex; align-items:center;
   padding: calc(18px + var(--safe-top)) 22px 14px;
   flex-shrink:0;
 }
@@ -229,7 +229,9 @@ input{ font-family: inherit; }
   animation: shimmer 2.6s linear infinite;
 }
 .item-cost{ font-family: var(--font-mono); font-size:11px; color: var(--text-3); flex-shrink:0; }
-.item-last-done{ font-size:11px; color: var(--text-3); margin-top:6px; font-weight:500; }
+.item-date-row{ display:flex; align-items:center; justify-content:space-between; margin-top:6px; gap:8px; }
+.item-last-done{ font-size:11px; color: var(--text-3); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.item-due-date{ font-size:11px; color: var(--text-3); font-weight:500; flex-shrink:0; }
 
 @keyframes shimmer{
   0%{ transform: translateX(-120%); }
@@ -363,6 +365,7 @@ input{ font-family: inherit; }
 }
 .field-label:first-child{ margin-top:4px; }
 .field-optional{ color: var(--text-3); font-weight:500; }
+.field-hint{ font-size:12px; color: var(--text-3); margin-top:10px; padding:0 2px; }
 
 .field-input{
   width:100%; padding:13px 15px;
@@ -376,7 +379,15 @@ input{ font-family: inherit; }
 }
 .field-input:focus{ border-color: var(--accent); }
 .field-input::placeholder{ color: var(--text-3); }
-input[type="date"].field-input{ color-scheme: dark; }
+input[type="date"].field-input{
+  color-scheme: light;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+input[type="date"].field-input::-webkit-date-and-time-value{
+  text-align: left;
+}
 
 .chip-row{ display:flex; flex-wrap:wrap; gap:8px; }
 .chip{
@@ -425,6 +436,28 @@ input[type="date"].field-input{ color-scheme: dark; }
   position:absolute; left:15px; font-family: var(--font-mono); font-size:14px; color: var(--text-3); font-weight:600;
 }
 .cost-input{ padding-left:54px; font-family: var(--font-mono); }
+
+.toggle-row{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:13px 15px; margin-top:10px;
+  border-radius:14px; background: var(--bg-card-hi); border:1px solid var(--border);
+  cursor:pointer;
+}
+.toggle-row span:first-child{ font-size:14px; font-weight:600; color: var(--text-1); }
+.toggle-input{ position:absolute; opacity:0; width:0; height:0; }
+.toggle-track{
+  position:relative; width:46px; height:27px; border-radius:14px;
+  background: var(--border-hi);
+  transition: background 0.25s var(--ease);
+  flex-shrink:0;
+}
+.toggle-thumb{
+  position:absolute; top:2px; left:2px; width:23px; height:23px; border-radius:50%;
+  background:#fff; box-shadow: 0 1px 3px rgba(16,16,30,0.25);
+  transition: transform 0.25s var(--spring);
+}
+.toggle-input:checked + .toggle-track{ background: var(--accent); }
+.toggle-input:checked + .toggle-track .toggle-thumb{ transform: translateX(19px); }
 
 .sheet-footer{ padding: 12px 22px 18px; flex-shrink:0; }
 .btn-primary{
@@ -494,15 +527,30 @@ input[type="date"].field-input{ color-scheme: dark; }
 .detail-notes{ margin-top:16px; padding:13px 15px; border-radius:14px; background: var(--bg-card-hi); font-size:13.5px; color: var(--text-2); line-height:1.5; }
 
 .history-title{ font-size:13px; color: var(--text-2); margin: 22px 0 10px; font-weight:600; }
+.history-title-row{
+  display:flex; align-items:center; justify-content:space-between;
+  margin: 22px 0 10px; cursor:pointer;
+}
+.history-title-row .history-title{ margin:0; }
+.history-title-arrow{ color: var(--text-3); display:flex; }
+.history-title-arrow svg{ width:16px; height:16px; }
 .history-list{ display:flex; flex-direction:column; gap:2px; }
 .history-row{
   display:flex; align-items:center; justify-content:space-between;
   padding:11px 4px; border-bottom:1px solid var(--border);
   font-size:13.5px;
+  gap: 10px;
 }
 .history-row:last-child{ border-bottom:none; }
-.history-date{ font-weight:600; }
-.history-gap{ font-family: var(--font-mono); font-size:12px; color: var(--text-3); }
+.history-date{ font-weight:600; flex-shrink:0; }
+.history-gap{ font-family: var(--font-mono); font-size:12px; color: var(--text-3); flex-shrink:0; }
+.history-right{ display:flex; align-items:center; gap:12px; }
+.history-cost{ font-family: var(--font-mono); font-size:12.5px; color: var(--text-2); font-weight:600; }
+.history-row.full{ justify-content: space-between; }
+.history-see-all{
+  text-align:center; padding:12px 4px; margin-top:4px;
+  font-size:13px; font-weight:600; color: var(--accent);
+}
 
 /* ============================================================
    INSIGHTS

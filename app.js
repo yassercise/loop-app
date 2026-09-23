@@ -73,26 +73,28 @@ function seedData(){
   ];
 
   const items = [
-    mkItem({ name:"Haircut", category:"personal-care", icon:"scissors", type:"interval", intervalDays:21, lastDone: daysAgo(12), cost:5 }),
+    mkItem({ name:"Haircut", category:"personal-care", icon:"scissors", type:"interval", intervalDays:21, lastDone: daysAgo(12), cost:5, costVaries:true }),
     mkItem({ name:"Skincare restock", category:"personal-care", icon:"droplet", type:"interval", intervalDays:45, lastDone: daysAgo(30), cost:18 }),
     mkItem({ name:"AC filter change", category:"home", icon:"wind", type:"interval", intervalDays:60, lastDone: daysAgo(58) }),
     mkItem({ name:"Car wash", category:"home", icon:"car", type:"interval", intervalDays:14, lastDone: daysAgo(20) }),
-    mkItem({ name:"Car oil change", category:"home", icon:"wrench", type:"interval", intervalDays:90, lastDone: daysAgo(40), cost:25 }),
-    mkItem({ name:"Dentist checkup", category:"health", icon:"tooth", type:"interval", intervalDays:180, lastDone: daysAgo(150), cost:35 }),
+    mkItem({ name:"Car oil change", category:"home", icon:"wrench", type:"interval", intervalDays:90, lastDone: daysAgo(40), cost:25, costVaries:true }),
+    mkItem({ name:"Dentist checkup", category:"health", icon:"tooth", type:"interval", intervalDays:180, lastDone: daysAgo(150), cost:35, costVaries:true }),
     mkItem({ name:"Eye checkup", category:"health", icon:"eye", type:"interval", intervalDays:365, lastDone: daysAgo(200) }),
     mkItem({ name:"Call parents", category:"relationships", icon:"phone", type:"interval", intervalDays:7, lastDone: daysAgo(9) }),
     mkItem({ name:"Laundry", category:"clothes", icon:"shirt", type:"interval", intervalDays:5, lastDone: daysAgo(4) }),
     mkItem({ name:"Dry cleaning drop-off", category:"clothes", icon:"suitcase", type:"interval", intervalDays:21, lastDone: daysAgo(10) }),
-    mkItem({ name:"Netflix renewal", category:"finance", icon:"card", type:"interval", intervalDays:30, lastDone: daysAgo(28), cost:4.5 }),
+    mkItem({ name:"Netflix renewal", category:"finance", icon:"card", type:"fixed", fixedDate: dstr(new Date(today.getFullYear(), today.getMonth()+1, 2)), renewDays:30, cost:4.5 }),
+    mkItem({ name:"Phone bill", category:"finance", icon:"phone", type:"fixed", fixedDate: dstr(new Date(today.getFullYear(), today.getMonth()+1, 1)), renewDays:30, cost:15, costVaries:true }),
     mkItem({ name:"Passport expiry", category:"finance", icon:"passport", type:"fixed", fixedDate: dstr(new Date(today.getFullYear()+2, today.getMonth(), today.getDate())), renewDays:365 }),
     mkItem({ name:"Gym session", category:"fitness", icon:"dumbbell", type:"interval", intervalDays:2, lastDone: daysAgo(1) }),
-    mkItem({ name:"Padel", category:"fitness", icon:"racquet", type:"interval", intervalDays:7, lastDone: daysAgo(6), cost:8 }),
+    mkItem({ name:"Padel", category:"fitness", icon:"racquet", type:"interval", intervalDays:7, lastDone: daysAgo(6), cost:8, costVaries:true }),
   ];
 
   return { categories, items, currency: "BHD" };
 }
 
-function mkItem({ name, category, icon, type, intervalDays, lastDone, fixedDate, renewDays, cost, notes }){
+function mkItem({ name, category, icon, type, intervalDays, lastDone, fixedDate, renewDays, cost, costVaries, notes }){
+  const initialHistory = lastDone ? [{ date: lastDone, cost: cost || null }] : [];
   return {
     id: uid(),
     name, category, icon, type,
@@ -101,8 +103,9 @@ function mkItem({ name, category, icon, type, intervalDays, lastDone, fixedDate,
     fixedDate: fixedDate || null,
     renewDays: renewDays != null ? renewDays : 365,
     cost: cost || null,
+    costVaries: !!costVaries,
     notes: notes || "",
-    history: lastDone ? [lastDone] : [],
+    history: initialHistory,
     createdAt: dstr(new Date())
   };
 }
@@ -111,6 +114,10 @@ function uid(){ return Math.random().toString(36).slice(2,10) + Date.now().toStr
 function dstr(d){ return d.toISOString().slice(0,10); }
 function todayStr(){ return dstr(new Date()); }
 function daysBetween(a,b){ return Math.round((new Date(b) - new Date(a)) / 86400000); }
+function formatShortDate(dateStr){
+  const d = new Date(dateStr);
+  return d.toLocaleDateString(undefined, { month:"short", day:"numeric" });
+}
 
 // ============================================================
 // STATE
@@ -175,7 +182,7 @@ function getItemStatus(item){
 
   if (item.type === "fixed"){
     dueDate = item.fixedDate;
-    lastRef = item.history && item.history.length ? item.history[item.history.length-1] : item.createdAt;
+    lastRef = item.history && item.history.length ? item.history[item.history.length-1].date : item.createdAt;
     totalSpan = Math.max(daysBetween(lastRef, dueDate), 1);
   } else {
     lastRef = item.lastDone || item.createdAt;
@@ -298,6 +305,9 @@ function renderItemCard(item, cat){
   const pct = Math.min(s.pct, 100);
   const overflowing = s.pct > 100;
 
+  const dueDateLabel = formatShortDate(s.dueDate);
+  const lastDoneLabel = formatShortDate(s.lastRef);
+
   let dueText, metaClass = "";
   if (s.status === "overdue"){
     dueText = `${Math.abs(s.daysLeft)}d overdue`;
@@ -309,7 +319,7 @@ function renderItemCard(item, cat){
     dueText = `Due in ${s.daysLeft}d`;
   }
 
-  const lastDoneText = `Last done ${s.daysAgo}d ago`;
+  const lastDoneText = `Last done ${s.daysAgo}d ago · ${lastDoneLabel}`;
   const costHtml = item.cost ? `<span class="item-cost">${state.currency} ${Number(item.cost).toFixed(2)}</span>` : "";
 
   return `<div class="item-card cat-${cat.color} ${s.status === 'overdue' ? 'overdue' : ''}" data-id="${item.id}">
@@ -325,7 +335,10 @@ function renderItemCard(item, cat){
         </div>
         ${costHtml}
       </div>
-      <div class="item-last-done">${lastDoneText}</div>
+      <div class="item-date-row">
+        <span class="item-last-done">${lastDoneText}</span>
+        <span class="item-due-date">Due ${dueDateLabel}</span>
+      </div>
     </div>
     <div class="item-check">
       <svg viewBox="0 0 24 24" fill="none"><path d="M5 13L9.5 17.5L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -342,28 +355,48 @@ function handleQuickLog(itemId, cardEl){
   const item = state.items.find(i => i.id === itemId);
   if (!item) return;
 
-  const done = logItemDone(item);
-  if (!done){
-    promptNextDate(item, () => {
-      cardEl.classList.add("just-logged");
-      playChime(); vibrate(12);
-      showToast(`${item.name} logged`);
-      render(); saveToFirestore();
+  completeLog(item, () => {
+    cardEl.classList.add("just-logged");
+    playChime(); vibrate(12);
+    showToast(`${item.name} logged`);
+    render(); saveToFirestore();
+  });
+}
+
+// Central "mark done" flow shared by the quick-tap checkmark and the detail
+// sheet's log button. Branches on whether the item needs a next-date prompt
+// (fixed date, "ask each time") or a cost confirm (costVaries + has a cost).
+function completeLog(item, onDone){
+  if (item.type === "fixed" && item.renewDays === 0){
+    promptNextDate(item, (nextDate) => {
+      if (item.costVaries && item.cost){
+        promptCost(item, (cost) => {
+          logItemDone(item, { nextDate, cost });
+          onDone();
+        });
+      } else {
+        logItemDone(item, { nextDate });
+        onDone();
+      }
     });
     return;
   }
 
-  cardEl.classList.add("just-logged");
-  playChime();
-  vibrate(12);
-  showToast(`${item.name} logged`);
-  render();
-  saveToFirestore();
+  if (item.costVaries && item.cost){
+    promptCost(item, (cost) => {
+      logItemDone(item, { cost });
+      onDone();
+    });
+    return;
+  }
+
+  logItemDone(item);
+  onDone();
 }
 
 // For "ask each time" fixed-date items: collect the next due date via a
 // lightweight date-input prompt built on the confirm dialog shell.
-function promptNextDate(item, onDone){
+function promptNextDate(item, onConfirm){
   const backdrop = document.getElementById("confirmBackdrop");
   const box = backdrop.querySelector(".confirm-box");
   box.innerHTML = `
@@ -382,10 +415,39 @@ function promptNextDate(item, onDone){
   });
   document.getElementById("nextDateOk").addEventListener("click", () => {
     const nextDate = document.getElementById("nextDateInput").value || item.fixedDate;
-    logItemDone(item, nextDate);
     backdrop.classList.remove("open");
     restoreConfirmBox();
-    onDone();
+    onConfirm(nextDate);
+  });
+}
+
+// For items marked "cost varies": confirm or edit the amount before logging.
+function promptCost(item, onConfirm){
+  const backdrop = document.getElementById("confirmBackdrop");
+  const box = backdrop.querySelector(".confirm-box");
+  box.innerHTML = `
+    <p>Cost for this "${esc(item.name)}"?</p>
+    <div class="cost-input-wrap" style="margin-bottom:14px;">
+      <span class="cost-prefix">${state.currency}</span>
+      <input type="number" id="promptCostInput" class="field-input cost-input" value="${item.cost}" min="0" step="0.01">
+    </div>
+    <div class="confirm-actions">
+      <button class="confirm-btn cancel" id="costCancel">Cancel</button>
+      <button class="confirm-btn" id="costOk" style="background:var(--accent); color:#fff;">Confirm</button>
+    </div>
+  `;
+  backdrop.classList.add("open");
+  document.getElementById("promptCostInput").focus();
+
+  document.getElementById("costCancel").addEventListener("click", () => {
+    backdrop.classList.remove("open");
+    restoreConfirmBox();
+  });
+  document.getElementById("costOk").addEventListener("click", () => {
+    const cost = parseFloat(document.getElementById("promptCostInput").value);
+    backdrop.classList.remove("open");
+    restoreConfirmBox();
+    onConfirm(isNaN(cost) ? item.cost : cost);
   });
 }
 
@@ -411,16 +473,20 @@ function restoreConfirmBox(){
 
 // Returns true if the log completed immediately, false if it needs a follow-up
 // (e.g. "ask each time" fixed-date items prompt for the next due date).
-function logItemDone(item, explicitNextDate){
+function logItemDone(item, options){
+  options = options || {};
   const today = todayStr();
+  const explicitNextDate = options.nextDate;
+  const loggedCost = options.cost !== undefined ? options.cost : item.cost;
 
   if (item.type === "fixed" && item.renewDays === 0 && !explicitNextDate){
     return false; // caller must collect the next date and re-call with it
   }
 
   item.history = item.history || [];
-  item.history.push(today);
+  item.history.push({ date: today, cost: loggedCost || null });
   if (item.history.length > 30) item.history = item.history.slice(-30);
+  if (loggedCost != null) item.cost = loggedCost;
 
   if (item.type === "interval"){
     item.lastDone = today;
@@ -535,6 +601,7 @@ function openItemSheet(itemId){
 
   document.getElementById("itemName").value = item ? item.name : "";
   document.getElementById("itemCost").value = item && item.cost ? item.cost : "";
+  document.getElementById("costVariesToggle").checked = item ? !!item.costVaries : false;
   document.getElementById("itemNotes").value = item ? item.notes || "" : "";
 
   const type = item ? item.type : "interval";
@@ -546,6 +613,18 @@ function openItemSheet(itemId){
   } else {
     document.getElementById("fixedDate").value = item ? item.fixedDate : todayStr();
     setActiveSegment("renewSegment", item ? String(item.renewDays) : "365");
+
+    const hint = document.getElementById("fixedLastDoneHint");
+    const hist = item && item.history && item.history.length ? item.history : null;
+    if (hist){
+      const lastEntry = hist[hist.length - 1];
+      const label = formatShortDate(lastEntry.date);
+      const costLabel = lastEntry.cost ? ` for ${state.currency} ${Number(lastEntry.cost).toFixed(2)}` : "";
+      hint.textContent = `Last confirmed ${label}${costLabel}`;
+      hint.hidden = false;
+    } else {
+      hint.hidden = true;
+    }
   }
 
   openSheet("itemSheetBackdrop");
@@ -617,9 +696,10 @@ function saveItem(){
   const icon = getSelectedIcon();
   const type = document.querySelector("#typeSegment .segment.active").dataset.type;
   const cost = parseFloat(document.getElementById("itemCost").value) || null;
+  const costVaries = document.getElementById("costVariesToggle").checked;
   const notes = document.getElementById("itemNotes").value.trim();
 
-  let itemData = { name, category, icon, type, cost, notes };
+  let itemData = { name, category, icon, type, cost, costVaries, notes };
 
   if (type === "interval"){
     const mult = parseInt(document.querySelector("#unitSegment .segment.active").dataset.mult, 10);
@@ -636,7 +716,7 @@ function saveItem(){
     Object.assign(item, itemData);
   } else {
     const newItem = mkItem(itemData);
-    if (type === "interval") { newItem.lastDone = itemData.lastDone; newItem.history = [itemData.lastDone]; }
+    if (type === "interval") { newItem.lastDone = itemData.lastDone; newItem.history = [{ date: itemData.lastDone, cost: cost || null }]; }
     else { newItem.fixedDate = itemData.fixedDate; newItem.renewDays = itemData.renewDays; newItem.history = []; }
     state.items.push(newItem);
   }
@@ -714,12 +794,59 @@ function renderHistory(item){
     list.innerHTML = `<p style="color:var(--text-3); font-size:13.5px; padding:8px 4px;">No history yet.</p>`;
     return;
   }
-  list.innerHTML = hist.map((date, i) => {
-    const gap = i < hist.length - 1 ? daysBetween(hist[i+1], date) + "d gap" : "";
-    const d = new Date(date);
+  const preview = hist.slice(0, 5);
+  list.innerHTML = preview.map((entry, i) => {
+    const gap = i < hist.length - 1 ? daysBetween(hist[i+1].date, entry.date) + "d gap" : "";
+    const d = new Date(entry.date);
     const label = d.toLocaleDateString(undefined, { month:"short", day:"numeric", year:"numeric" });
-    return `<div class="history-row"><span class="history-date">${label}</span><span class="history-gap">${gap}</span></div>`;
+    const costLabel = entry.cost ? `${state.currency} ${Number(entry.cost).toFixed(2)}` : "";
+    return `<div class="history-row">
+      <span class="history-date">${label}</span>
+      <span class="history-right">
+        ${costLabel ? `<span class="history-cost">${costLabel}</span>` : ""}
+        <span class="history-gap">${gap}</span>
+      </span>
+    </div>`;
   }).join("");
+
+  if (hist.length > 5){
+    list.innerHTML += `<button class="history-see-all" id="seeAllHistoryBtn">See all ${hist.length} entries</button>`;
+    document.getElementById("seeAllHistoryBtn").addEventListener("click", () => openFullHistory(item));
+  }
+}
+
+function openFullHistory(item){
+  const cat = getCategory(item.category);
+  const hist = (item.history || []).slice().reverse();
+
+  document.getElementById("fullHistoryName").textContent = item.name;
+  document.getElementById("fullHistoryCategory").textContent = cat.name;
+  document.getElementById("fullHistoryIconWrap").className = `detail-icon-wrap cat-${cat.color}`;
+  document.getElementById("fullHistoryIconWrap").innerHTML = iconSVG(item.icon);
+
+  const totalCost = hist.reduce((sum, e) => sum + (e.cost || 0), 0);
+  const costedEntries = hist.filter(e => e.cost);
+  document.getElementById("fullHistoryTotal").textContent = totalCost ? `${state.currency} ${totalCost.toFixed(2)}` : "—";
+  document.getElementById("fullHistoryCount").textContent = hist.length;
+
+  const list = document.getElementById("fullHistoryList");
+  if (!hist.length){
+    list.innerHTML = `<p style="color:var(--text-3); font-size:13.5px; padding:8px 4px;">No history yet.</p>`;
+  } else {
+    list.innerHTML = hist.map((entry, i) => {
+      const gap = i < hist.length - 1 ? daysBetween(hist[i+1].date, entry.date) + "d gap" : "";
+      const d = new Date(entry.date);
+      const label = d.toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric", year:"numeric" });
+      const costLabel = entry.cost ? `${state.currency} ${Number(entry.cost).toFixed(2)}` : "—";
+      return `<div class="history-row full">
+        <span class="history-date">${label}</span>
+        <span class="history-cost">${costLabel}</span>
+        <span class="history-gap">${gap}</span>
+      </div>`;
+    }).join("");
+  }
+
+  openSheet("fullHistoryBackdrop");
 }
 
 // ============================================================
@@ -913,11 +1040,6 @@ function wireEvents(){
     tab.addEventListener("click", () => switchTab(tab.dataset.tab));
   });
 
-  document.getElementById("statsBtn").addEventListener("click", () => {
-    renderInsights();
-    openSheet("insightsBackdrop");
-  });
-
   document.querySelectorAll(".summary-pill").forEach(pill => {
     pill.addEventListener("click", () => {
       const filter = pill.dataset.filter;
@@ -943,26 +1065,22 @@ function wireEvents(){
   document.getElementById("logFromDetailBtn").addEventListener("click", () => {
     const item = state.items.find(i => i.id === detailItemId);
     if (!item) return;
-    const done = logItemDone(item);
-    if (!done){
-      promptNextDate(item, () => {
-        playChime(); vibrate(12);
-        closeSheet("detailSheetBackdrop");
-        render(); saveToFirestore();
-        showToast(`${item.name} logged`);
-      });
-      return;
-    }
-    playChime();
-    vibrate(12);
-    closeSheet("detailSheetBackdrop");
-    render();
-    saveToFirestore();
-    showToast(`${item.name} logged`);
+    completeLog(item, () => {
+      playChime();
+      vibrate(12);
+      closeSheet("detailSheetBackdrop");
+      render();
+      saveToFirestore();
+      showToast(`${item.name} logged`);
+    });
   });
   document.getElementById("editItemBtn").addEventListener("click", () => {
     closeSheet("detailSheetBackdrop");
     setTimeout(() => openItemSheet(detailItemId), 250);
+  });
+  document.getElementById("historyTitleRow").addEventListener("click", () => {
+    const item = state.items.find(i => i.id === detailItemId);
+    if (item) openFullHistory(item);
   });
 
   // Category sheets
@@ -986,9 +1104,10 @@ function wireEvents(){
   setupSwipeDown("categorySheetBackdrop", "categorySheet");
   setupSwipeDown("newCategoryBackdrop", "newCategorySheet");
   setupSwipeDown("insightsBackdrop", "insightsSheet");
+  setupSwipeDown("fullHistoryBackdrop", "fullHistorySheet");
 
   // Backdrop click to close (generic)
-  ["categorySheetBackdrop","newCategoryBackdrop","insightsBackdrop"].forEach(id => {
+  ["categorySheetBackdrop","newCategoryBackdrop","insightsBackdrop","fullHistoryBackdrop"].forEach(id => {
     document.getElementById(id).addEventListener("click", (e) => {
       if (e.target.id === id) closeSheet(id);
     });

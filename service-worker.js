@@ -1,6 +1,6 @@
 // LOOP service worker
 // Bump this version string on every deploy to invalidate old caches.
-const CACHE_VERSION = "loop-v1.1.0";
+const CACHE_VERSION = "loop-v1.2.0";
 const CACHE_NAME = CACHE_VERSION;
 
 const CORE_ASSETS = [

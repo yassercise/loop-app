@@ -27,9 +27,6 @@
     <div class="topbar-title">
       <h1>Loop</h1>
     </div>
-    <button class="icon-btn" id="statsBtn" aria-label="Overview">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M4 19V10M12 19V5M20 19V13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    </button>
   </header>
 
   <!-- ===== URGENCY SUMMARY STRIP ===== -->
@@ -132,6 +129,7 @@
           <button class="segment" data-renew="365">Yearly</button>
           <button class="segment" data-renew="0">Ask each time</button>
         </div>
+        <p class="field-hint" id="fixedLastDoneHint" hidden></p>
       </div>
 
       <label class="field-label">Cost <span class="field-optional">(optional)</span></label>
@@ -139,6 +137,12 @@
         <span class="cost-prefix" id="costPrefix">BHD</span>
         <input type="number" id="itemCost" class="field-input cost-input" placeholder="0.00" min="0" step="0.01">
       </div>
+
+      <label class="toggle-row" for="costVariesToggle">
+        <span>Cost can vary each time</span>
+        <input type="checkbox" id="costVariesToggle" class="toggle-input">
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+      </label>
 
       <label class="field-label">Notes <span class="field-optional">(optional)</span></label>
       <input type="text" id="itemNotes" class="field-input" placeholder="Any detail worth remembering" maxlength="80">
@@ -187,12 +191,45 @@
 
       <p class="detail-notes" id="detailNotes" hidden></p>
 
-      <h3 class="history-title">History</h3>
+      <div class="history-title-row" id="historyTitleRow">
+        <h3 class="history-title">History</h3>
+        <span class="history-title-arrow">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M9 6L15 12L9 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </div>
       <div class="history-list" id="historyList"></div>
     </div>
 
     <div class="sheet-footer">
       <button class="btn-primary" id="logFromDetailBtn">Log as done today</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FULL HISTORY SHEET ===== -->
+<div class="sheet-backdrop" id="fullHistoryBackdrop">
+  <div class="sheet" id="fullHistorySheet">
+    <div class="sheet-grabber"></div>
+    <div class="detail-head">
+      <div class="detail-icon-wrap" id="fullHistoryIconWrap"></div>
+      <div>
+        <h2 id="fullHistoryName">—</h2>
+        <p id="fullHistoryCategory" class="detail-category">—</p>
+      </div>
+    </div>
+    <div class="detail-body">
+      <div class="detail-stat-row">
+        <div class="detail-stat">
+          <span class="detail-stat-num" id="fullHistoryCount">0</span>
+          <span class="detail-stat-label">Times logged</span>
+        </div>
+        <div class="detail-stat">
+          <span class="detail-stat-num" id="fullHistoryTotal">—</span>
+          <span class="detail-stat-label">Total spent</span>
+        </div>
+      </div>
+      <h3 class="history-title" style="margin-top:22px;">All entries</h3>
+      <div class="history-list" id="fullHistoryList"></div>
     </div>
   </div>
 </div>
