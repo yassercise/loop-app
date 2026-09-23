@@ -1,6 +1,6 @@
 // LOOP service worker
 // Bump this version string on every deploy to invalidate old caches.
-const CACHE_VERSION = "loop-v1.7.0";
+const CACHE_VERSION = "loop-v1.8.0";
 const CACHE_NAME = CACHE_VERSION;
 
 const CORE_ASSETS = [
@@ -10,7 +10,8 @@ const CORE_ASSETS = [
   "./app.js",
   "./manifest.json",
   "./icon-192.png",
-  "./icon-512.png"
+  "./icon-512.png",
+  "./logo-full.png"
 ];
 
 self.addEventListener("install", (event) => {

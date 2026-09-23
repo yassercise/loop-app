@@ -117,13 +117,13 @@ input{ font-family: inherit; }
 /* ---- Top bar ---- */
 .topbar{
   display:flex; align-items:center; justify-content:center;
-  padding: calc(18px + var(--safe-top)) 22px 14px;
+  padding: calc(22px + var(--safe-top)) 22px 18px;
   flex-shrink:0;
 }
 .topbar-title{
   display:flex; flex-direction:column; align-items:center; gap:6px;
 }
-.topbar-logo{ width:40px; height:40px; border-radius:12px; }
+.topbar-logo{ width:150px; height:auto; }
 .topbar-title h1{ font-size:22px; letter-spacing:-0.02em; }
 .icon-btn{
   width:40px; height:40px; border-radius:14px;
@@ -180,28 +180,6 @@ input{ font-family: inherit; }
 
 .item-cards{ display:flex; flex-direction:column; gap:10px; }
 
-.item-swipe-wrap{
-  position:relative;
-  overflow:hidden;
-  border-radius: var(--radius-md);
-}
-.item-swipe-delete{
-  position:absolute; top:0; right:0; bottom:0;
-  width:88px;
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
-  background: var(--danger);
-  color:#fff;
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
-}
-.item-swipe-delete svg{ width:19px; height:19px; }
-.item-swipe-delete span{ font-size:11px; font-weight:700; }
-.item-swipe-wrap .item-card{
-  position:relative;
-  transition: transform 0.25s var(--ease);
-  touch-action: pan-y;
-}
-.item-swipe-wrap.dragging .item-card{ transition:none; }
-
 /* ---- Empty state ---- */
 .empty-state{
   display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -228,6 +206,9 @@ input{ font-family: inherit; }
   overflow:hidden;
   transition: transform 0.15s var(--spring), border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
   cursor:pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .item-card::before{
   content:"";

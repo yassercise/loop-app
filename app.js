@@ -328,81 +328,41 @@ function renderCategoryList(){
     });
   });
 
-  container.querySelectorAll(".item-swipe-wrap").forEach(setupItemSwipe);
+  setupLongPressDelete(container);
 }
 
-// Swipe-to-delete for dashboard item cards. Dragging left reveals a red
-// delete action behind the card; releasing past the threshold snaps it
-// fully open, tapping the revealed button asks for confirmation.
-const SWIPE_DELETE_WIDTH = 88;
-function setupItemSwipe(wrap){
-  const card = wrap.querySelector(".item-card");
-  const deleteBtn = wrap.querySelector(".item-swipe-delete");
-  let startX = 0, startY = 0, currentX = 0, dragging = false, decided = false, isHorizontal = false;
-  let openOffset = 0; // 0 = closed, -SWIPE_DELETE_WIDTH = open
+// Long-press any item card to delete it. Simpler and safer than a swipe
+// gesture — no competing touch listeners fighting the page's own scroll.
+const LONG_PRESS_MS = 550;
+function setupLongPressDelete(container){
+  container.querySelectorAll(".item-card").forEach(card => {
+    let pressTimer = null;
+    let moved = false;
 
-  wrap.addEventListener("touchstart", (e) => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    currentX = openOffset;
-    dragging = true; decided = false; isHorizontal = false;
-    wrap.classList.add("dragging");
-  }, { passive:true });
+    const start = (e) => {
+      moved = false;
+      pressTimer = setTimeout(() => {
+        if (moved) return;
+        vibrate(15);
+        const itemId = card.dataset.id;
+        const item = state.items.find(i => i.id === itemId);
+        if (!item) return;
+        showConfirm(`Delete "${esc(item.name)}"? This can't be undone.`, () => {
+          state.items = state.items.filter(i => i.id !== itemId);
+          render();
+          saveToFirestore();
+          showToast("Item deleted");
+        });
+      }, LONG_PRESS_MS);
+    };
+    const cancel = () => { clearTimeout(pressTimer); };
+    const markMoved = () => { moved = true; clearTimeout(pressTimer); };
 
-  wrap.addEventListener("touchmove", (e) => {
-    if (!dragging) return;
-    const dx = e.touches[0].clientX - startX;
-    const dy = e.touches[0].clientY - startY;
-
-    if (!decided){
-      if (Math.abs(dx) > 8 || Math.abs(dy) > 8){
-        isHorizontal = Math.abs(dx) > Math.abs(dy);
-        decided = true;
-      } else {
-        return;
-      }
-    }
-    if (!isHorizontal){ dragging = false; return; } // let the page scroll vertically
-
-    let next = openOffset + dx;
-    next = Math.min(0, Math.max(-SWIPE_DELETE_WIDTH * 1.15, next)); // slight overdrag resistance handled by clamp
-    currentX = next;
-    card.style.transform = `translateX(${next}px)`;
-  }, { passive:true });
-
-  wrap.addEventListener("touchend", () => {
-    if (!dragging){ return; }
-    dragging = false;
-    wrap.classList.remove("dragging");
-    if (!isHorizontal) return;
-
-    // Snap open if dragged past half the delete width, else snap closed.
-    openOffset = currentX < -SWIPE_DELETE_WIDTH / 2 ? -SWIPE_DELETE_WIDTH : 0;
-    card.style.transform = `translateX(${openOffset}px)`;
+    card.addEventListener("touchstart", start, { passive:true });
+    card.addEventListener("touchmove", markMoved, { passive:true });
+    card.addEventListener("touchend", cancel);
+    card.addEventListener("touchcancel", cancel);
   });
-
-  deleteBtn.addEventListener("click", () => {
-    const itemId = wrap.dataset.id;
-    const item = state.items.find(i => i.id === itemId);
-    if (!item) return;
-    showConfirm(`Delete "${esc(item.name)}"? This can't be undone.`, () => {
-      state.items = state.items.filter(i => i.id !== itemId);
-      render();
-      saveToFirestore();
-      showToast("Item deleted");
-    });
-  });
-
-  // Tapping the card itself while the delete action is revealed should
-  // close it instead of opening the detail sheet.
-  card.addEventListener("click", (e) => {
-    if (openOffset !== 0){
-      e.stopPropagation();
-      e.preventDefault();
-      openOffset = 0;
-      card.style.transform = `translateX(0px)`;
-    }
-  }, true);
 }
 // RENDER: DESKTOP SIDEBAR
 // ============================================================
@@ -479,32 +439,26 @@ function renderItemCard(item, cat){
     : `Last done ${s.daysAgo}d ago · ${lastDoneLabel}`;
   const costHtml = item.cost ? `<span class="item-cost">${state.currency} ${Number(item.cost).toFixed(2)}</span>` : "";
 
-  return `<div class="item-swipe-wrap" data-id="${item.id}">
-    <div class="item-swipe-delete" data-action="delete-item">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M4 7H20M9 7V5A2 2 0 0111 3H13A2 2 0 0115 5V7M18 7L17.3 19A2 2 0 0115.3 21H8.7A2 2 0 016.7 19L6 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span>Delete</span>
+  return `<div class="item-card cat-${cat.color} ${s.status === 'overdue' ? 'overdue' : ''}" data-id="${item.id}">
+    <div class="item-icon-wrap">${iconSVG(item.icon)}</div>
+    <div class="item-main">
+      <div class="item-top-row">
+        <span class="item-name">${esc(item.name)}</span>
+        <span class="item-meta ${metaClass}">${dueText}</span>
+      </div>
+      <div class="item-sub-row">
+        <div class="item-bar-track">
+          <div class="item-bar-fill ${overflowing ? 'overflowing' : ''}" style="width:${pct}%"></div>
+        </div>
+        ${costHtml}
+      </div>
+      <div class="item-date-row">
+        <span class="item-last-done">${lastDoneText}</span>
+        <span class="item-due-date">Due ${dueDateLabel}</span>
+      </div>
     </div>
-    <div class="item-card cat-${cat.color} ${s.status === 'overdue' ? 'overdue' : ''}" data-id="${item.id}">
-      <div class="item-icon-wrap">${iconSVG(item.icon)}</div>
-      <div class="item-main">
-        <div class="item-top-row">
-          <span class="item-name">${esc(item.name)}</span>
-          <span class="item-meta ${metaClass}">${dueText}</span>
-        </div>
-        <div class="item-sub-row">
-          <div class="item-bar-track">
-            <div class="item-bar-fill ${overflowing ? 'overflowing' : ''}" style="width:${pct}%"></div>
-          </div>
-          ${costHtml}
-        </div>
-        <div class="item-date-row">
-          <span class="item-last-done">${lastDoneText}</span>
-          <span class="item-due-date">Due ${dueDateLabel}</span>
-        </div>
-      </div>
-      <div class="item-check">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M5 13L9.5 17.5L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
+    <div class="item-check">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M5 13L9.5 17.5L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
   </div>`;
 }
