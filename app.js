@@ -125,6 +125,8 @@ function formatShortDate(dateStr){
 let state = null;
 let isRemoteUpdate = false;
 let activeFilter = null;
+let sidebarActiveCategory = null;
+let currentDesktopView = "dashboard";
 let editingItemId = null;
 let editingCategoryId = null;
 let detailItemId = null;
@@ -216,6 +218,7 @@ function render(){
   if (!state) return;
   renderSummary();
   renderCategoryList();
+  renderSidebar();
 }
 
 function renderSummary(){
@@ -255,6 +258,8 @@ function renderCategoryList(){
 
   let html = "";
   state.categories.forEach(cat => {
+    if (sidebarActiveCategory && cat.id !== sidebarActiveCategory) return;
+
     let items = byCat[cat.id] || [];
     if (!items.length) return;
 
@@ -281,7 +286,7 @@ function renderCategoryList(){
     </div>`;
   });
 
-  container.innerHTML = html;
+  container.innerHTML = html || `<p class="filter-empty-msg">No items match this filter.</p>`;
 
   container.querySelectorAll(".item-card").forEach(card => {
     card.addEventListener("click", (e) => {
@@ -296,6 +301,58 @@ function renderCategoryList(){
     chk.addEventListener("click", (e) => {
       e.stopPropagation();
       handleQuickLog(chk.closest(".item-card").dataset.id, chk.closest(".item-card"));
+    });
+  });
+}
+
+// ============================================================
+// RENDER: DESKTOP SIDEBAR
+// ============================================================
+function renderSidebar(){
+  const list = document.getElementById("sidebarCategoryList");
+  if (!list) return;
+
+  list.innerHTML = state.categories.map(cat => {
+    const count = state.items.filter(i => i.category === cat.id).length;
+    const isActive = sidebarActiveCategory === cat.id;
+    return `<div class="sidebar-cat-item cat-${cat.color} ${isActive ? 'active' : ''}" data-id="${cat.id}">
+      <span class="sidebar-cat-dot"></span>
+      <span class="sidebar-cat-name">${esc(cat.name)}</span>
+      <span class="sidebar-cat-count">${count}</span>
+      <span class="sidebar-cat-actions">
+        <button class="sidebar-cat-action-btn" data-action="edit" aria-label="Edit category">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 20L4.6 16.7C4.7 16.3 4.9 15.9 5.2 15.6L15.5 5.3C16.3 4.5 17.5 4.5 18.3 5.3L18.7 5.7C19.5 6.5 19.5 7.7 18.7 8.5L8.4 18.8C8.1 19.1 7.7 19.3 7.3 19.4L4 20Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="sidebar-cat-action-btn danger" data-action="delete" aria-label="Delete category">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 7H20M9 7V5A2 2 0 0111 3H13A2 2 0 0115 5V7M18 7L17.3 19A2 2 0 0115.3 21H8.7A2 2 0 016.7 19L6 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </span>
+    </div>`;
+  }).join("");
+
+  list.querySelectorAll(".sidebar-cat-item").forEach(row => {
+    row.addEventListener("click", (e) => {
+      const id = row.dataset.id;
+      const action = e.target.closest("[data-action]");
+      if (action && action.dataset.action === "edit"){
+        openNewCategorySheet(id);
+      } else if (action && action.dataset.action === "delete"){
+        const count = state.items.filter(i => i.category === id).length;
+        const msg = count > 0
+          ? `Delete this category and its ${count} item${count===1?'':'s'}? This can't be undone.`
+          : `Delete this category?`;
+        showConfirm(msg, () => {
+          state.categories = state.categories.filter(c => c.id !== id);
+          state.items = state.items.filter(i => i.category !== id);
+          if (sidebarActiveCategory === id) sidebarActiveCategory = null;
+          render();
+          saveToFirestore();
+          showToast("Category deleted");
+        });
+      } else {
+        sidebarActiveCategory = sidebarActiveCategory === id ? null : id;
+        render();
+      }
     });
   });
 }
@@ -1030,6 +1087,30 @@ function switchTab(tab){
   }
 }
 
+// Desktop sidebar equivalent of switchTab: Home shows the normal dashboard,
+// Insights renders in-page (not as an overlay sheet) inside the main column.
+function switchDesktopView(view){
+  currentDesktopView = view;
+  document.querySelectorAll(".sidebar-nav-item").forEach(item => {
+    item.classList.toggle("active", item.dataset.view === view);
+  });
+
+  const mainScroll = document.getElementById("mainScroll");
+  const summaryStrip = document.getElementById("summaryStrip");
+  const insightsBackdrop = document.getElementById("insightsBackdrop");
+
+  if (view === "insights"){
+    renderInsights();
+    mainScroll.hidden = true;
+    summaryStrip.hidden = true;
+    insightsBackdrop.classList.add("desktop-page", "open");
+  } else {
+    mainScroll.hidden = false;
+    summaryStrip.hidden = false;
+    insightsBackdrop.classList.remove("desktop-page", "open");
+  }
+}
+
 // ============================================================
 // EVENT WIRING
 // ============================================================
@@ -1038,6 +1119,13 @@ function wireEvents(){
 
   document.querySelectorAll(".tab-item").forEach(tab => {
     tab.addEventListener("click", () => switchTab(tab.dataset.tab));
+  });
+
+  // Desktop sidebar
+  document.getElementById("sidebarAddBtn").addEventListener("click", () => openItemSheet(null));
+  document.getElementById("sidebarNewCategoryBtn").addEventListener("click", () => openNewCategorySheet(null));
+  document.querySelectorAll(".sidebar-nav-item").forEach(navItem => {
+    navItem.addEventListener("click", () => switchDesktopView(navItem.dataset.view));
   });
 
   document.querySelectorAll(".summary-pill").forEach(pill => {

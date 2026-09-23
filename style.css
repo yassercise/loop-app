@@ -150,6 +150,7 @@ input{ font-family: inherit; }
 .empty-icon{ font-size:34px; margin-bottom:14px; color: var(--text-3); animation: breathe 3s var(--ease) infinite; }
 .empty-title{ font-family: var(--font-head); font-size:17px; color: var(--text-2); font-weight:600; margin-bottom:6px; }
 .empty-sub{ font-size:14px; max-width:220px; line-height:1.4; }
+.filter-empty-msg{ text-align:center; color: var(--text-3); font-size:14px; padding: 60px 20px 0; }
 
 /* ============================================================
    ITEM CARD
@@ -626,16 +627,156 @@ input[type="date"].field-input::-webkit-date-and-time-value{
    RESPONSIVE — desktop
 ============================================================ */
 @media (min-width: 720px){
-  body{ display:flex; align-items:center; justify-content:center; background: #08080C; }
+  html, body{ height:100%; overflow:hidden; }
+  body{ background: var(--bg); }
+
   #app{
-    position:relative; width:430px; height:900px; max-height:94vh;
-    border-radius:44px; overflow:hidden;
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 40px 100px rgba(0,0,0,0.6);
+    position:fixed; inset:0;
+    display:flex; flex-direction:row;
+    height:100%;
   }
-  .sheet-backdrop, .confirm-backdrop{ position:absolute; }
-  .fab{ position:absolute; }
-  .tabbar{ position:absolute; }
+
+  .app-main{
+    flex:1; min-width:0;
+    display:flex; flex-direction:column;
+    height:100%;
+    position:relative;
+  }
+
+  /* ---- Sidebar ---- */
+  .desktop-sidebar{
+    display:flex; flex-direction:column;
+    width:264px; flex-shrink:0;
+    height:100%;
+    background: var(--bg-elevated);
+    border-right:1px solid var(--border);
+    padding: 28px 18px 18px;
+  }
+  .sidebar-brand{ padding: 0 8px 22px; }
+  .sidebar-brand h1{ font-size:22px; letter-spacing:-0.02em; }
+
+  .sidebar-add-btn{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    width:100%; padding:12px; margin-bottom:20px;
+    border-radius:14px;
+    background: linear-gradient(150deg, var(--accent), #5B4BDB);
+    color:#fff; font-weight:600; font-size:14px;
+    transition: transform 0.15s var(--spring), filter 0.2s var(--ease);
+  }
+  .sidebar-add-btn svg{ width:17px; height:17px; }
+  .sidebar-add-btn:hover{ filter: brightness(1.08); }
+  .sidebar-add-btn:active{ transform: scale(0.97); }
+
+  .sidebar-nav{ display:flex; flex-direction:column; gap:2px; margin-bottom:22px; }
+  .sidebar-nav-item{
+    display:flex; align-items:center; gap:11px;
+    padding:10px 12px; border-radius:11px;
+    font-size:14px; font-weight:600; color: var(--text-2);
+    text-align:left;
+    transition: background 0.15s var(--ease), color 0.15s var(--ease);
+  }
+  .sidebar-nav-item svg{ width:18px; height:18px; flex-shrink:0; }
+  .sidebar-nav-item:hover{ background: var(--bg-card-hi); }
+  .sidebar-nav-item.active{ background: var(--accent-soft); color: var(--accent); }
+
+  .sidebar-section-label{
+    font-size:11px; font-weight:700; color: var(--text-3);
+    text-transform:uppercase; letter-spacing:0.05em;
+    padding: 4px 12px 8px;
+  }
+  .sidebar-category-list{
+    display:flex; flex-direction:column; gap:1px;
+    overflow-y:auto; flex:1;
+  }
+  .sidebar-cat-item{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 12px; border-radius:11px;
+    font-size:13.5px; font-weight:600; color: var(--text-2);
+    cursor:pointer; position:relative;
+    transition: background 0.15s var(--ease);
+  }
+  .sidebar-cat-item:hover{ background: var(--bg-card-hi); }
+  .sidebar-cat-item.active{ background: var(--bg-card-hi); color: var(--text-1); }
+  .sidebar-cat-dot{ width:8px; height:8px; border-radius:50%; background: var(--cat); flex-shrink:0; }
+  .sidebar-cat-name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sidebar-cat-count{ font-family: var(--font-mono); font-size:11.5px; color: var(--text-3); flex-shrink:0; }
+  .sidebar-cat-actions{
+    display:none; align-items:center; gap:2px; flex-shrink:0;
+  }
+  .sidebar-cat-item:hover .sidebar-cat-actions{ display:flex; }
+  .sidebar-cat-item:hover .sidebar-cat-count{ display:none; }
+  .sidebar-cat-action-btn{
+    width:22px; height:22px; border-radius:7px;
+    display:flex; align-items:center; justify-content:center;
+    color: var(--text-3);
+    transition: background 0.15s var(--ease), color 0.15s var(--ease);
+  }
+  .sidebar-cat-action-btn svg{ width:13px; height:13px; }
+  .sidebar-cat-action-btn:hover{ background: var(--border-hi); color: var(--text-1); }
+  .sidebar-cat-action-btn.danger:hover{ color: var(--danger); }
+
+  .sidebar-new-category-btn{
+    display:flex; align-items:center; gap:9px;
+    padding:10px 12px; margin-top:10px;
+    border-radius:11px;
+    font-size:13px; font-weight:600; color: var(--text-3);
+    transition: background 0.15s var(--ease), color 0.15s var(--ease);
+  }
+  .sidebar-new-category-btn svg{ width:15px; height:15px; }
+  .sidebar-new-category-btn:hover{ background: var(--bg-card-hi); color: var(--text-2); }
+
+  /* ---- Hide mobile-only chrome ---- */
+  .fab, .tabbar{ display:none; }
+
+  /* ---- Top bar becomes a page header ---- */
+  .topbar{ padding: 32px 40px 18px; max-width: 900px; }
+  .topbar-title h1{ display:none; } /* sidebar already shows the brand */
+
+  .summary-strip{ padding: 0 40px 20px; max-width: 900px; gap:14px; }
+  .summary-pill{ padding:16px 18px 17px; align-items:flex-start; }
+  .summary-count{ font-size:26px; }
+  .summary-label{ font-size:12.5px; }
+
+  #mainScroll{ padding: 0 40px; max-width: 900px; }
+  .scroll-pad{ height: 60px; }
+
+  .item-card{ padding: 18px 20px; }
+  .item-icon-wrap{ width:50px; height:50px; }
+
+  /* ---- Sheets become right-side drawers ---- */
+  .sheet-backdrop{
+    background: rgba(16,16,24,0.24);
+  }
+  .sheet{
+    left:auto; right:0; top:0; bottom:0;
+    width:440px; max-width:92vw; max-height:none;
+    border-radius: 28px 0 0 28px;
+    transform: translateX(100%);
+    transition: transform 0.4s var(--spring);
+  }
+  .sheet-backdrop.open .sheet{ transform: translateX(0); }
+  .sheet-grabber{ display:none; }
+
+  /* ---- Insights as an in-page view instead of a drawer ---- */
+  .sheet-backdrop.desktop-page{
+    position: static;
+    background: none; backdrop-filter: none;
+    opacity:1; pointer-events:none;
+    display:none;
+  }
+  .sheet-backdrop.desktop-page.open{
+    display:block; pointer-events:auto;
+  }
+  .sheet-backdrop.desktop-page .sheet{
+    position: static;
+    width:100%; max-width:900px; height:auto;
+    border-radius:0; border:none;
+    box-shadow:none;
+    transform:none;
+    padding: 0 40px;
+  }
+  .sheet-backdrop.desktop-page .sheet-head{ padding: 32px 0 6px; }
+  .sheet-backdrop.desktop-page .sheet-body{ padding: 10px 0 40px; overflow:visible; }
 }
 
 /* Focus visibility for keyboard nav */

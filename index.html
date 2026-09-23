@@ -22,6 +22,40 @@
 
 <div id="app">
 
+  <!-- ===== DESKTOP SIDEBAR (hidden on mobile) ===== -->
+  <aside class="desktop-sidebar" id="desktopSidebar">
+    <div class="sidebar-brand">
+      <h1>Loop</h1>
+    </div>
+
+    <button class="sidebar-add-btn" id="sidebarAddBtn">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      Add item
+    </button>
+
+    <nav class="sidebar-nav">
+      <button class="sidebar-nav-item active" data-view="dashboard">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="9" rx="2" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="5" rx="2" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="12" width="7" height="9" rx="2" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="16" width="7" height="5" rx="2" stroke="currentColor" stroke-width="1.8"/></svg>
+        Home
+      </button>
+      <button class="sidebar-nav-item" data-view="insights">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 17L9 11L13 15L21 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 7H21V13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Insights
+      </button>
+    </nav>
+
+    <div class="sidebar-section-label">Categories</div>
+    <div class="sidebar-category-list" id="sidebarCategoryList"></div>
+
+    <button class="sidebar-new-category-btn" id="sidebarNewCategoryBtn">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      New category
+    </button>
+  </aside>
+
+  <!-- ===== MOBILE/SHARED MAIN AREA ===== -->
+  <div class="app-main" id="appMain">
+
   <!-- ===== TOP BAR ===== -->
   <header class="topbar">
     <div class="topbar-title">
@@ -77,6 +111,9 @@
       <span>Insights</span>
     </button>
   </nav>
+
+  </div>
+  <!-- /.app-main -->
 
 </div>
 
