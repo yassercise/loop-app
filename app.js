@@ -409,9 +409,8 @@ function renderItemCard(item, cat){
     dueText = `Due in ${s.daysLeft}d`;
   }
 
-  const lastDoneText = item.neverDoneYet
-    ? `Not started yet`
-    : `Last done ${s.daysAgo}d ago · ${lastDoneLabel}`;
+  const hasNeverBeenLogged = item.neverDoneYet || (item.type === "fixed" && (!item.history || item.history.length === 0));
+  const lastDoneText = hasNeverBeenLogged ? "" : `Last done ${s.daysAgo}d ago · ${lastDoneLabel}`;
   const costHtml = item.cost ? `<span class="item-cost">${state.currency} ${Number(item.cost).toFixed(2)}</span>` : "";
 
   return `<div class="item-card cat-${cat.color} ${s.status === 'overdue' ? 'overdue' : ''}" data-id="${item.id}">
@@ -427,8 +426,8 @@ function renderItemCard(item, cat){
         </div>
         ${costHtml}
       </div>
-      <div class="item-date-row">
-        <span class="item-last-done">${lastDoneText}</span>
+      <div class="item-date-row ${hasNeverBeenLogged ? 'due-only' : ''}">
+        ${hasNeverBeenLogged ? '' : `<span class="item-last-done">${lastDoneText}</span>`}
         <span class="item-due-date">Due ${dueDateLabel}</span>
       </div>
     </div>
@@ -711,6 +710,14 @@ function openItemSheet(itemId){
     document.getElementById("fixedDate").value = item ? item.fixedDate : todayStr();
     setActiveSegment("renewSegment", item ? String(item.renewDays) : "365");
 
+    // The backfill field only makes sense for a brand-new item — editing an
+    // existing one shows the read-only "last confirmed" hint instead.
+    const backfillField = document.getElementById("fixedLastDoneDate");
+    const backfillLabel = backfillField.previousElementSibling;
+    backfillField.value = "";
+    backfillField.hidden = !!item;
+    if (backfillLabel) backfillLabel.hidden = !!item;
+
     const hint = document.getElementById("fixedLastDoneHint");
     const hist = item && item.history && item.history.length ? item.history : null;
     if (hist){
@@ -814,6 +821,7 @@ function saveItem(){
   } else {
     itemData.fixedDate = document.getElementById("fixedDate").value || todayStr();
     itemData.renewDays = parseInt(document.querySelector("#renewSegment .segment.active").dataset.renew, 10);
+    itemData.fixedLastDone = document.getElementById("fixedLastDoneDate").value || null;
   }
 
   if (editingItemId){
@@ -828,7 +836,14 @@ function saveItem(){
       // since nothing has actually happened — it's just the starting point.
       newItem.history = neverDoneYet ? [] : [{ date: itemData.lastDone, cost: cost || null }];
     }
-    else { newItem.fixedDate = itemData.fixedDate; newItem.renewDays = itemData.renewDays; newItem.history = []; }
+    else {
+      newItem.fixedDate = itemData.fixedDate;
+      newItem.renewDays = itemData.renewDays;
+      // Optional backfill: if a last-paid date was given, seed history with
+      // it so "Last done" shows immediately instead of waiting for the
+      // first in-app log.
+      newItem.history = itemData.fixedLastDone ? [{ date: itemData.fixedLastDone, cost: cost || null }] : [];
+    }
     state.items.push(newItem);
   }
 
@@ -871,7 +886,8 @@ function openDetail(itemId){
   document.getElementById("detailName").textContent = item.name;
   document.getElementById("detailCategory").textContent = cat.name;
 
-  document.getElementById("detailDaysAgo").textContent = item.neverDoneYet ? "Not yet" : `${s.daysAgo}d ago`;
+  const hasNeverBeenLogged = item.neverDoneYet || (item.type === "fixed" && (!item.history || item.history.length === 0));
+  document.getElementById("detailDaysAgo").textContent = hasNeverBeenLogged ? "—" : `${s.daysAgo}d ago`;
   document.getElementById("detailDaysLeft").textContent = s.status === "overdue" ? `${Math.abs(s.daysLeft)}d over` : `${s.daysLeft}d left`;
   document.getElementById("detailDaysLeftLabel").textContent = s.status === "overdue" ? "Overdue" : "Due";
 

@@ -277,6 +277,7 @@ input{ font-family: inherit; }
 }
 .item-cost{ font-family: var(--font-mono); font-size:11px; color: var(--text-3); flex-shrink:0; }
 .item-date-row{ display:flex; align-items:center; justify-content:space-between; margin-top:6px; gap:8px; }
+.item-date-row.due-only{ justify-content:flex-end; }
 .item-last-done{ font-size:11px; color: var(--text-3); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .item-due-date{ font-size:11px; color: var(--text-3); font-weight:500; flex-shrink:0; }
 
