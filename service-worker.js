@@ -1,6 +1,6 @@
 // LOOP service worker
 // Bump this version string on every deploy to invalidate old caches.
-const CACHE_VERSION = "loop-v1.4.0";
+const CACHE_VERSION = "loop-v1.6.0";
 const CACHE_NAME = CACHE_VERSION;
 
 const CORE_ASSETS = [
@@ -31,6 +31,15 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// The app's own page can ask this service worker to check for a new
+// version right away (used by pull-to-refresh) instead of waiting for
+// the browser's normal update check cycle.
+self.addEventListener("message", (event) => {
+  if (event.data === "CHECK_FOR_UPDATE") {
+    self.registration.update();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
@@ -39,8 +48,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Network-first for navigation requests (HTML), so updates land quickly.
-  if (event.request.mode === "navigate") {
+  const isCoreAsset = event.request.mode === "navigate" ||
+    url.pathname.endsWith("/style.css") ||
+    url.pathname.endsWith("/app.js") ||
+    url.pathname.endsWith("/manifest.json");
+
+  if (isCoreAsset) {
+    // Network-first: always try to fetch the latest HTML/CSS/JS so a new
+    // deploy shows up on the very next load, falling back to cache only
+    // when offline.
     event.respondWith(
       fetch(event.request)
         .then((response) => {
@@ -53,7 +69,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Cache-first for everything else (static assets).
+  // Cache-first for everything else (icons, fonts) — these rarely change.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;

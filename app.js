@@ -140,6 +140,7 @@ let confirmCallback = null;
 // FIRESTORE SYNC
 // ============================================================
 async function initData(){
+  const splashStart = Date.now();
   try{
     const snap = await getDoc(docRef);
     if (snap.exists() && snap.data() && snap.data().items){
@@ -153,7 +154,26 @@ async function initData(){
     state = seedData();
   }
   render();
+
+  // Guarantee the splash is visible for at least one clean animation
+  // cycle so a fast connection doesn't just flash it — but never hold
+  // it longer than necessary on a slow one.
+  const MIN_SPLASH_MS = 550;
+  const elapsed = Date.now() - splashStart;
+  setTimeout(dismissSplash, Math.max(0, MIN_SPLASH_MS - elapsed));
+
   listenForChanges();
+}
+
+// Slides the loading splash up and out once real data has actually
+// rendered — never on a fixed timer, so it never lies about being ready.
+function dismissSplash(){
+  const splash = document.getElementById("splashScreen");
+  if (!splash) return;
+  requestAnimationFrame(() => {
+    splash.classList.add("splash-exit");
+    setTimeout(() => splash.classList.add("splash-hidden"), 700);
+  });
 }
 
 function listenForChanges(){
@@ -1318,14 +1338,108 @@ setInterval(() => { if (state) render(); }, 60000);
 // ============================================================
 // SERVICE WORKER
 // ============================================================
+let swRegistration = null;
 if ("serviceWorker" in navigator){
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js").catch(() => {});
+    navigator.serviceWorker.register("service-worker.js")
+      .then(reg => { swRegistration = reg; })
+      .catch(() => {});
   });
+}
+
+// ============================================================
+// PULL TO REFRESH
+// ============================================================
+// Pulling down from the very top of the dashboard forces a real app
+// refresh: it asks the service worker to check for a newer deploy, then
+// hard-reloads the page so any updated code actually takes effect —
+// this is the fix for "I shipped an update but the phone still shows
+// the old version until I force-quit the app."
+let pullRefreshInProgress = false;
+
+function setupPullToRefresh(){
+  const scroller = document.getElementById("mainScroll");
+  const indicator = document.getElementById("pullRefreshIndicator");
+  const spinner = indicator.querySelector(".pull-refresh-spinner");
+  if (!scroller || !indicator) return;
+
+  const PULL_THRESHOLD = 70;
+  let startY = 0, pulling = false, decided = false, isPull = false;
+
+  scroller.addEventListener("touchstart", (e) => {
+    if (pullRefreshInProgress) return;
+    if (scroller.scrollTop > 0) return;
+    startY = e.touches[0].clientY;
+    pulling = true; decided = false; isPull = false;
+  }, { passive:true });
+
+  scroller.addEventListener("touchmove", (e) => {
+    if (!pulling || pullRefreshInProgress) return;
+    const dy = e.touches[0].clientY - startY;
+
+    if (!decided){
+      if (Math.abs(dy) > 6){
+        isPull = dy > 0 && scroller.scrollTop <= 0;
+        decided = true;
+      } else {
+        return;
+      }
+    }
+    if (!isPull) return;
+
+    const dist = Math.min(dy * 0.5, PULL_THRESHOLD * 1.4);
+    indicator.style.transform = `translateY(${dist + 52}px)`;
+    indicator.classList.add("visible");
+    spinner.style.transform = `rotate(${dist * 3}deg)`;
+  }, { passive:true });
+
+  scroller.addEventListener("touchend", (e) => {
+    if (!pulling) return;
+    pulling = false;
+    if (!isPull){ return; }
+
+    const finalDy = (e.changedTouches[0].clientY - startY) * 0.5;
+    if (finalDy >= PULL_THRESHOLD){
+      triggerRefresh(indicator, spinner);
+    } else {
+      indicator.classList.remove("visible");
+      indicator.style.transform = "";
+    }
+  });
+}
+
+function triggerRefresh(indicator, spinner){
+  pullRefreshInProgress = true;
+  indicator.style.transform = `translateY(${52 + 70}px)`;
+  spinner.classList.add("spinning");
+  vibrate(10);
+
+  const finish = () => window.location.reload();
+
+  const clearAndReload = () => {
+    if ("caches" in window){
+      caches.keys()
+        .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+        .catch(() => {})
+        .finally(finish);
+    } else {
+      finish();
+    }
+  };
+
+  if (swRegistration){
+    if (swRegistration.active) swRegistration.active.postMessage("CHECK_FOR_UPDATE");
+    swRegistration.update().catch(() => {}).finally(() => {
+      setTimeout(clearAndReload, 400);
+    });
+  } else {
+    setTimeout(clearAndReload, 400);
+  }
 }
 
 // ============================================================
 // INIT
 // ============================================================
 wireEvents();
+setupPullToRefresh();
 initData();

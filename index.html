@@ -20,6 +20,14 @@
 </head>
 <body>
 
+<!-- ===== LOADING SPLASH ===== -->
+<div id="splashScreen">
+  <div class="splash-content">
+    <img src="icon-192.png" alt="" class="splash-logo">
+    <div class="splash-name">Loop</div>
+  </div>
+</div>
+
 <div id="app">
 
   <!-- ===== DESKTOP SIDEBAR (hidden on mobile) ===== -->
@@ -83,6 +91,9 @@
 
   <!-- ===== MAIN SCROLL AREA ===== -->
   <main id="mainScroll">
+    <div class="pull-refresh-indicator" id="pullRefreshIndicator">
+      <div class="pull-refresh-spinner"></div>
+    </div>
     <div id="categoryList" class="category-list"></div>
     <div id="emptyState" class="empty-state" hidden>
       <div class="empty-icon">◌</div>
