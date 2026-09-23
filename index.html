@@ -159,7 +159,7 @@
             <button class="segment" data-mult="30">Months</button>
           </div>
         </div>
-        <label class="toggle-row" for="neverDoneToggle" style="margin: 18px 0 8px;">
+        <label class="toggle-row" style="margin: 18px 0 8px;">
           <span>Haven't done this yet</span>
           <input type="checkbox" id="neverDoneToggle" class="toggle-input">
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
@@ -189,7 +189,7 @@
         <input type="number" id="itemCost" class="field-input cost-input" placeholder="0.00" min="0" step="0.01">
       </div>
 
-      <label class="toggle-row" for="costVariesToggle">
+      <label class="toggle-row">
         <span>Cost can vary each time</span>
         <input type="checkbox" id="costVariesToggle" class="toggle-input">
         <span class="toggle-track"><span class="toggle-thumb"></span></span>
@@ -218,6 +218,9 @@
       <button class="icon-btn" id="editItemBtn" aria-label="Edit">
         <svg viewBox="0 0 24 24" fill="none"><path d="M4 20L4.6 16.7C4.7 16.3 4.9 15.9 5.2 15.6L15.5 5.3C16.3 4.5 17.5 4.5 18.3 5.3L18.7 5.7C19.5 6.5 19.5 7.7 18.7 8.5L8.4 18.8C8.1 19.1 7.7 19.3 7.3 19.4L4 20Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
       </button>
+      <button class="icon-btn danger" id="deleteFromDetailBtn" aria-label="Delete">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 7H20M9 7V5A2 2 0 0111 3H13A2 2 0 0115 5V7M18 7L17.3 19A2 2 0 0115.3 21H8.7A2 2 0 016.7 19L6 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
 
     <div class="detail-body">
@@ -239,6 +242,7 @@
       <div class="detail-bar-track">
         <div class="detail-bar-fill" id="detailBarFill"></div>
       </div>
+      <p class="detail-due-date-line" id="detailDueDateLine">—</p>
 
       <p class="detail-notes" id="detailNotes" hidden></p>
 

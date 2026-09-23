@@ -554,6 +554,8 @@ input[type="date"].field-input::-webkit-date-and-time-value{
 .detail-head h2{ font-size:19px; }
 .detail-category{ font-size:12.5px; color: var(--text-3); font-weight:600; margin-top:2px; }
 .detail-head .icon-btn{ margin-left:auto; }
+.detail-head .icon-btn + .icon-btn{ margin-left:0; }
+.icon-btn.danger{ color: var(--danger); }
 
 .detail-body{ padding: 16px 22px 8px; overflow-y:auto; overflow-x:hidden; flex:1; touch-action: pan-y; }
 .detail-stat-row{ display:flex; gap:10px; }
@@ -567,6 +569,7 @@ input[type="date"].field-input::-webkit-date-and-time-value{
 .detail-bar-track{ height:10px; border-radius:10px; background: rgba(255,255,255,0.06); margin-top:18px; overflow:hidden; }
 .detail-bar-fill{ height:100%; border-radius:10px; background: var(--cat); width:0%; transition: width 1.1s var(--ease); }
 .detail-bar-fill.overflowing{ background: var(--danger); }
+.detail-due-date-line{ text-align:center; font-size:12.5px; color: var(--text-3); font-weight:600; margin-top:10px; }
 
 .detail-notes{ margin-top:16px; padding:13px 15px; border-radius:14px; background: var(--bg-card-hi); font-size:13.5px; color: var(--text-2); line-height:1.5; }
 
@@ -586,11 +589,12 @@ input[type="date"].field-input::-webkit-date-and-time-value{
   gap: 10px;
 }
 .history-row:last-child{ border-bottom:none; }
-.history-date{ font-weight:600; flex-shrink:0; }
-.history-gap{ font-family: var(--font-mono); font-size:12px; color: var(--text-3); flex-shrink:0; }
-.history-right{ display:flex; align-items:center; gap:12px; }
-.history-cost{ font-family: var(--font-mono); font-size:12.5px; color: var(--text-2); font-weight:600; }
+.history-date{ font-weight:600; font-size:12.5px; }
+.history-gap{ font-family: var(--font-mono); font-size:11.5px; color: var(--text-3); flex-shrink:0; white-space:nowrap; }
+.history-right{ display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.history-cost{ font-family: var(--font-mono); font-size:12.5px; color: var(--text-2); font-weight:600; white-space:nowrap; }
 .history-row.full{ justify-content: space-between; }
+.history-row.full .history-date{ flex:1; min-width:0; }
 .history-see-all{
   text-align:center; padding:12px 4px; margin-top:4px;
   font-size:13px; font-weight:600; color: var(--accent);

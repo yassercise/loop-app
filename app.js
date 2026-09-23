@@ -123,6 +123,16 @@ function formatShortDate(dateStr){
     : { month:"short", day:"numeric", year:"numeric" });
 }
 
+// Same as formatShortDate but leads with the weekday name — used in the
+// detail popup and history where there's room for it.
+function formatDateWithDay(dateStr){
+  const d = new Date(dateStr);
+  const isCurrentYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString(undefined, isCurrentYear
+    ? { weekday:"long", month:"short", day:"numeric" }
+    : { weekday:"long", month:"short", day:"numeric", year:"numeric" });
+}
+
 // ============================================================
 // STATE
 // ============================================================
@@ -327,43 +337,8 @@ function renderCategoryList(){
       handleQuickLog(chk.closest(".item-card").dataset.id, chk.closest(".item-card"));
     });
   });
-
-  setupLongPressDelete(container);
 }
 
-// Long-press any item card to delete it. Simpler and safer than a swipe
-// gesture — no competing touch listeners fighting the page's own scroll.
-const LONG_PRESS_MS = 550;
-function setupLongPressDelete(container){
-  container.querySelectorAll(".item-card").forEach(card => {
-    let pressTimer = null;
-    let moved = false;
-
-    const start = (e) => {
-      moved = false;
-      pressTimer = setTimeout(() => {
-        if (moved) return;
-        vibrate(15);
-        const itemId = card.dataset.id;
-        const item = state.items.find(i => i.id === itemId);
-        if (!item) return;
-        showConfirm(`Delete "${esc(item.name)}"? This can't be undone.`, () => {
-          state.items = state.items.filter(i => i.id !== itemId);
-          render();
-          saveToFirestore();
-          showToast("Item deleted");
-        });
-      }, LONG_PRESS_MS);
-    };
-    const cancel = () => { clearTimeout(pressTimer); };
-    const markMoved = () => { moved = true; clearTimeout(pressTimer); };
-
-    card.addEventListener("touchstart", start, { passive:true });
-    card.addEventListener("touchmove", markMoved, { passive:true });
-    card.addEventListener("touchend", cancel);
-    card.addEventListener("touchcancel", cancel);
-  });
-}
 // RENDER: DESKTOP SIDEBAR
 // ============================================================
 function renderSidebar(){
@@ -914,6 +889,11 @@ function openDetail(itemId){
   barFill.style.width = "0%";
   requestAnimationFrame(() => { barFill.style.width = pct + "%"; });
 
+  const dueLine = document.getElementById("detailDueDateLine");
+  dueLine.textContent = s.status === "overdue"
+    ? `Was due ${formatDateWithDay(s.dueDate)}`
+    : `Due ${formatDateWithDay(s.dueDate)}`;
+
   const notesEl = document.getElementById("detailNotes");
   if (item.notes){ notesEl.hidden = false; notesEl.textContent = item.notes; }
   else notesEl.hidden = true;
@@ -933,8 +913,7 @@ function renderHistory(item){
   const preview = hist.slice(0, 5);
   list.innerHTML = preview.map((entry, i) => {
     const gap = i < hist.length - 1 ? daysBetween(hist[i+1].date, entry.date) + "d gap" : "";
-    const d = new Date(entry.date);
-    const label = d.toLocaleDateString(undefined, { month:"short", day:"numeric", year:"numeric" });
+    const label = formatDateWithDay(entry.date);
     const costLabel = entry.cost ? `${state.currency} ${Number(entry.cost).toFixed(2)}` : "";
     return `<div class="history-row">
       <span class="history-date">${label}</span>
@@ -971,8 +950,7 @@ function openFullHistory(item){
   } else {
     list.innerHTML = hist.map((entry, i) => {
       const gap = i < hist.length - 1 ? daysBetween(hist[i+1].date, entry.date) + "d gap" : "";
-      const d = new Date(entry.date);
-      const label = d.toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric", year:"numeric" });
+      const label = formatDateWithDay(entry.date);
       const costLabel = entry.cost ? `${state.currency} ${Number(entry.cost).toFixed(2)}` : "—";
       return `<div class="history-row full">
         <span class="history-date">${label}</span>
@@ -1247,6 +1225,17 @@ function wireEvents(){
   document.getElementById("editItemBtn").addEventListener("click", () => {
     closeSheet("detailSheetBackdrop");
     setTimeout(() => openItemSheet(detailItemId), 250);
+  });
+  document.getElementById("deleteFromDetailBtn").addEventListener("click", () => {
+    const item = state.items.find(i => i.id === detailItemId);
+    if (!item) return;
+    showConfirm(`Delete "${esc(item.name)}"? This can't be undone.`, () => {
+      state.items = state.items.filter(i => i.id !== detailItemId);
+      closeSheet("detailSheetBackdrop");
+      render();
+      saveToFirestore();
+      showToast("Item deleted");
+    });
   });
   document.getElementById("historyTitleRow").addEventListener("click", () => {
     const item = state.items.find(i => i.id === detailItemId);
