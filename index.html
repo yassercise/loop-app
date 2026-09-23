@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Loop</title>
-<meta name="theme-color" content="#0E0E14">
+<meta name="theme-color" content="#F5F5F7">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Loop">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -26,7 +26,6 @@
   <header class="topbar">
     <div class="topbar-title">
       <h1>Loop</h1>
-      <p id="dateLine" class="topbar-date">—</p>
     </div>
     <button class="icon-btn" id="statsBtn" aria-label="Overview">
       <svg viewBox="0 0 24 24" fill="none"><path d="M4 19V10M12 19V5M20 19V13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -126,11 +125,12 @@
       <div id="fixedFields" hidden>
         <label class="field-label">Due date</label>
         <input type="date" id="fixedDate" class="field-input">
-        <label class="field-label">When renewed, next date is</label>
-        <div class="segmented" id="renewSegment">
-          <button class="segment active" data-renew="365">+1 year</button>
-          <button class="segment" data-renew="30">+1 month</button>
-          <button class="segment" data-renew="0">Ask me each time</button>
+        <label class="field-label">When it renews, next date is</label>
+        <div class="segmented seg-4" id="renewSegment">
+          <button class="segment" data-renew="7">Weekly</button>
+          <button class="segment active" data-renew="30">Monthly</button>
+          <button class="segment" data-renew="365">Yearly</button>
+          <button class="segment" data-renew="0">Ask each time</button>
         </div>
       </div>
 
@@ -169,11 +169,11 @@
       <div class="detail-stat-row">
         <div class="detail-stat">
           <span class="detail-stat-num" id="detailDaysAgo">—</span>
-          <span class="detail-stat-label">days ago</span>
+          <span class="detail-stat-label">Last done</span>
         </div>
         <div class="detail-stat">
           <span class="detail-stat-num" id="detailDaysLeft">—</span>
-          <span class="detail-stat-label" id="detailDaysLeftLabel">days left</span>
+          <span class="detail-stat-label" id="detailDaysLeftLabel">Due</span>
         </div>
         <div class="detail-stat" id="detailCostStat">
           <span class="detail-stat-num" id="detailCost">—</span>

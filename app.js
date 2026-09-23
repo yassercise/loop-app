@@ -190,9 +190,10 @@ function getItemStatus(item){
   const elapsed = daysBetween(lastRef, todayStr());
   let pct = totalSpan > 0 ? (elapsed / totalSpan) * 100 : 100;
 
+  const SOON_THRESHOLD_DAYS = 2;
   let status = "ontrack";
   if (daysLeft < 0) status = "overdue";
-  else if (pct >= 75) status = "soon";
+  else if (daysLeft <= SOON_THRESHOLD_DAYS) status = "soon";
 
   return { dueDate, lastRef, daysAgo, daysLeft, pct: Math.max(pct,0), status };
 }
@@ -206,14 +207,8 @@ function getCategory(id){
 // ============================================================
 function render(){
   if (!state) return;
-  renderDateLine();
   renderSummary();
   renderCategoryList();
-}
-
-function renderDateLine(){
-  const el = document.getElementById("dateLine");
-  el.textContent = new Date().toLocaleDateString(undefined, { weekday:"long", month:"long", day:"numeric" });
 }
 
 function renderSummary(){
@@ -303,17 +298,18 @@ function renderItemCard(item, cat){
   const pct = Math.min(s.pct, 100);
   const overflowing = s.pct > 100;
 
-  let metaText, metaClass = "";
+  let dueText, metaClass = "";
   if (s.status === "overdue"){
-    metaText = `${Math.abs(s.daysLeft)}d overdue`;
+    dueText = `${Math.abs(s.daysLeft)}d overdue`;
     metaClass = "status-overdue";
   } else if (s.status === "soon"){
-    metaText = `${s.daysLeft}d left`;
+    dueText = `Due in ${s.daysLeft}d`;
     metaClass = "status-soon";
   } else {
-    metaText = `${s.daysLeft}d left`;
+    dueText = `Due in ${s.daysLeft}d`;
   }
 
+  const lastDoneText = `Last done ${s.daysAgo}d ago`;
   const costHtml = item.cost ? `<span class="item-cost">${state.currency} ${Number(item.cost).toFixed(2)}</span>` : "";
 
   return `<div class="item-card cat-${cat.color} ${s.status === 'overdue' ? 'overdue' : ''}" data-id="${item.id}">
@@ -321,7 +317,7 @@ function renderItemCard(item, cat){
     <div class="item-main">
       <div class="item-top-row">
         <span class="item-name">${esc(item.name)}</span>
-        <span class="item-meta ${metaClass}">${metaText}</span>
+        <span class="item-meta ${metaClass}">${dueText}</span>
       </div>
       <div class="item-sub-row">
         <div class="item-bar-track">
@@ -329,6 +325,7 @@ function renderItemCard(item, cat){
         </div>
         ${costHtml}
       </div>
+      <div class="item-last-done">${lastDoneText}</div>
     </div>
     <div class="item-check">
       <svg viewBox="0 0 24 24" fill="none"><path d="M5 13L9.5 17.5L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -345,7 +342,17 @@ function handleQuickLog(itemId, cardEl){
   const item = state.items.find(i => i.id === itemId);
   if (!item) return;
 
-  logItemDone(item);
+  const done = logItemDone(item);
+  if (!done){
+    promptNextDate(item, () => {
+      cardEl.classList.add("just-logged");
+      playChime(); vibrate(12);
+      showToast(`${item.name} logged`);
+      render(); saveToFirestore();
+    });
+    return;
+  }
+
   cardEl.classList.add("just-logged");
   playChime();
   vibrate(12);
@@ -354,22 +361,77 @@ function handleQuickLog(itemId, cardEl){
   saveToFirestore();
 }
 
-function logItemDone(item){
+// For "ask each time" fixed-date items: collect the next due date via a
+// lightweight date-input prompt built on the confirm dialog shell.
+function promptNextDate(item, onDone){
+  const backdrop = document.getElementById("confirmBackdrop");
+  const box = backdrop.querySelector(".confirm-box");
+  box.innerHTML = `
+    <p>When is the next "${esc(item.name)}" due?</p>
+    <input type="date" id="nextDateInput" class="field-input" value="${item.fixedDate}" style="margin-bottom:14px;">
+    <div class="confirm-actions">
+      <button class="confirm-btn cancel" id="nextDateCancel">Cancel</button>
+      <button class="confirm-btn" id="nextDateOk" style="background:var(--accent); color:#fff;">Confirm</button>
+    </div>
+  `;
+  backdrop.classList.add("open");
+
+  document.getElementById("nextDateCancel").addEventListener("click", () => {
+    backdrop.classList.remove("open");
+    restoreConfirmBox();
+  });
+  document.getElementById("nextDateOk").addEventListener("click", () => {
+    const nextDate = document.getElementById("nextDateInput").value || item.fixedDate;
+    logItemDone(item, nextDate);
+    backdrop.classList.remove("open");
+    restoreConfirmBox();
+    onDone();
+  });
+}
+
+function restoreConfirmBox(){
+  const box = document.querySelector("#confirmBackdrop .confirm-box");
+  box.innerHTML = `
+    <p id="confirmMessage">Are you sure?</p>
+    <div class="confirm-actions">
+      <button class="confirm-btn cancel" id="confirmCancel">Cancel</button>
+      <button class="confirm-btn danger" id="confirmOk">Delete</button>
+    </div>
+  `;
+  document.getElementById("confirmCancel").addEventListener("click", () => {
+    document.getElementById("confirmBackdrop").classList.remove("open");
+    confirmCallback = null;
+  });
+  document.getElementById("confirmOk").addEventListener("click", () => {
+    document.getElementById("confirmBackdrop").classList.remove("open");
+    if (confirmCallback) confirmCallback();
+    confirmCallback = null;
+  });
+}
+
+// Returns true if the log completed immediately, false if it needs a follow-up
+// (e.g. "ask each time" fixed-date items prompt for the next due date).
+function logItemDone(item, explicitNextDate){
   const today = todayStr();
+
+  if (item.type === "fixed" && item.renewDays === 0 && !explicitNextDate){
+    return false; // caller must collect the next date and re-call with it
+  }
+
   item.history = item.history || [];
   item.history.push(today);
   if (item.history.length > 30) item.history = item.history.slice(-30);
 
   if (item.type === "interval"){
     item.lastDone = today;
-  } else {
-    // fixed date: advance
-    if (item.renewDays > 0){
-      const d = new Date(item.fixedDate);
-      d.setDate(d.getDate() + item.renewDays);
-      item.fixedDate = dstr(d);
-    }
+  } else if (explicitNextDate){
+    item.fixedDate = explicitNextDate;
+  } else if (item.renewDays > 0){
+    const d = new Date(item.fixedDate);
+    d.setDate(d.getDate() + item.renewDays);
+    item.fixedDate = dstr(d);
   }
+  return true;
 }
 
 // ============================================================
@@ -417,29 +479,39 @@ function closeSheet(id){ document.getElementById(id).classList.remove("open"); }
 function setupSwipeDown(backdropId, sheetId){
   const backdrop = document.getElementById(backdropId);
   const sheet = document.getElementById(sheetId);
-  let startY = 0, currentY = 0, dragging = false;
+  let startY = 0, currentY = 0, dragging = false, startedAtTop = false;
 
-  const grabber = sheet.querySelector(".sheet-grabber");
-  const head = sheet.querySelector(".sheet-head, .detail-head");
+  const scrollable = sheet.querySelector(".sheet-body, .detail-body");
 
-  [grabber, head].forEach(el => {
-    if (!el) return;
-    el.addEventListener("touchstart", (e) => {
-      startY = e.touches[0].clientY; dragging = true;
-      sheet.style.transition = "none";
-    }, { passive:true });
-    el.addEventListener("touchmove", (e) => {
-      if (!dragging) return;
-      currentY = e.touches[0].clientY - startY;
-      if (currentY > 0) sheet.style.transform = `translateY(${currentY}px)`;
-    }, { passive:true });
-    el.addEventListener("touchend", () => {
+  sheet.addEventListener("touchstart", (e) => {
+    startY = e.touches[0].clientY;
+    currentY = 0;
+    // Only allow the drag-to-close gesture to begin if the inner content
+    // is already scrolled to its top — otherwise let normal scrolling happen.
+    startedAtTop = !scrollable || scrollable.scrollTop <= 0;
+    dragging = startedAtTop;
+    sheet.style.transition = "none";
+  }, { passive:true });
+
+  sheet.addEventListener("touchmove", (e) => {
+    if (!dragging) return;
+    const delta = e.touches[0].clientY - startY;
+    if (delta > 0){
+      currentY = delta;
+      sheet.style.transform = `translateY(${currentY}px)`;
+    } else {
+      // user is trying to scroll content up while at the top — bail out of drag mode
       dragging = false;
-      sheet.style.transition = "";
-      if (currentY > 100){ closeSheet(backdropId); }
       sheet.style.transform = "";
-      currentY = 0;
-    });
+    }
+  }, { passive:true });
+
+  sheet.addEventListener("touchend", () => {
+    dragging = false;
+    sheet.style.transition = "";
+    if (currentY > 100){ closeSheet(backdropId); }
+    sheet.style.transform = "";
+    currentY = 0;
   });
 
   backdrop.addEventListener("click", (e) => {
@@ -608,9 +680,9 @@ function openDetail(itemId){
   document.getElementById("detailName").textContent = item.name;
   document.getElementById("detailCategory").textContent = cat.name;
 
-  document.getElementById("detailDaysAgo").textContent = s.daysAgo;
-  document.getElementById("detailDaysLeft").textContent = s.status === "overdue" ? Math.abs(s.daysLeft) : s.daysLeft;
-  document.getElementById("detailDaysLeftLabel").textContent = s.status === "overdue" ? "days overdue" : "days left";
+  document.getElementById("detailDaysAgo").textContent = `${s.daysAgo}d ago`;
+  document.getElementById("detailDaysLeft").textContent = s.status === "overdue" ? `${Math.abs(s.daysLeft)}d over` : `${s.daysLeft}d left`;
+  document.getElementById("detailDaysLeftLabel").textContent = s.status === "overdue" ? "Overdue" : "Due";
 
   const costStat = document.getElementById("detailCostStat");
   if (item.cost){
@@ -645,7 +717,7 @@ function renderHistory(item){
   list.innerHTML = hist.map((date, i) => {
     const gap = i < hist.length - 1 ? daysBetween(hist[i+1], date) + "d gap" : "";
     const d = new Date(date);
-    const label = d.toLocaleDateString(undefined, { month:"short", day:"numeric", year: d.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined });
+    const label = d.toLocaleDateString(undefined, { month:"short", day:"numeric", year:"numeric" });
     return `<div class="history-row"><span class="history-date">${label}</span><span class="history-gap">${gap}</span></div>`;
   }).join("");
 }
@@ -871,7 +943,16 @@ function wireEvents(){
   document.getElementById("logFromDetailBtn").addEventListener("click", () => {
     const item = state.items.find(i => i.id === detailItemId);
     if (!item) return;
-    logItemDone(item);
+    const done = logItemDone(item);
+    if (!done){
+      promptNextDate(item, () => {
+        playChime(); vibrate(12);
+        closeSheet("detailSheetBackdrop");
+        render(); saveToFirestore();
+        showToast(`${item.name} logged`);
+      });
+      return;
+    }
     playChime();
     vibrate(12);
     closeSheet("detailSheetBackdrop");
