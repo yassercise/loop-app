@@ -709,27 +709,13 @@ function openItemSheet(itemId){
   } else {
     document.getElementById("fixedDate").value = item ? item.fixedDate : todayStr();
     setActiveSegment("renewSegment", item ? String(item.renewDays) : "365");
-
-    // The backfill field only makes sense for a brand-new item — editing an
-    // existing one shows the read-only "last confirmed" hint instead.
-    const backfillField = document.getElementById("fixedLastDoneDate");
-    const backfillLabel = backfillField.previousElementSibling;
-    backfillField.value = "";
-    backfillField.hidden = !!item;
-    if (backfillLabel) backfillLabel.hidden = !!item;
-
-    const hint = document.getElementById("fixedLastDoneHint");
-    const hist = item && item.history && item.history.length ? item.history : null;
-    if (hist){
-      const lastEntry = hist[hist.length - 1];
-      const label = formatShortDate(lastEntry.date);
-      const costLabel = lastEntry.cost ? ` for ${state.currency} ${Number(lastEntry.cost).toFixed(2)}` : "";
-      hint.textContent = `Last confirmed ${label}${costLabel}`;
-      hint.hidden = false;
-    } else {
-      hint.hidden = true;
-    }
   }
+
+  // Fixed-date "last paid/done" backfill — always populate this regardless
+  // of which type is currently selected, since the user can switch the
+  // segment after the sheet opens and this needs to already be correct.
+  const hist = item && item.history && item.history.length ? item.history : null;
+  document.getElementById("fixedLastDoneDate").value = hist ? hist[hist.length - 1].date : "";
 
   openSheet("itemSheetBackdrop");
 }
@@ -827,6 +813,23 @@ function saveItem(){
   if (editingItemId){
     const item = state.items.find(i => i.id === editingItemId);
     Object.assign(item, itemData);
+    if (type === "fixed"){
+      // Apply the edited "last paid/done" date to the earliest history
+      // entry (creating one if there wasn't any yet), without touching
+      // any later logged entries.
+      item.history = item.history || [];
+      if (itemData.fixedLastDone){
+        if (item.history.length){
+          item.history[0] = { date: itemData.fixedLastDone, cost: item.history[0].cost };
+        } else {
+          item.history.push({ date: itemData.fixedLastDone, cost: cost || null });
+        }
+      } else if (item.history.length === 1){
+        // Field was cleared and there was only the backfilled entry — remove it.
+        item.history = [];
+      }
+      delete item.fixedLastDone;
+    }
   } else {
     const newItem = mkItem(itemData);
     if (type === "interval") {
