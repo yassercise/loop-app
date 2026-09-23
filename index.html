@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Loop</title>
+<meta name="theme-color" content="#0E0E14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Loop">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ===== TOP BAR ===== -->
+  <header class="topbar">
+    <div class="topbar-title">
+      <h1>Loop</h1>
+      <p id="dateLine" class="topbar-date">—</p>
+    </div>
+    <button class="icon-btn" id="statsBtn" aria-label="Overview">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 19V10M12 19V5M20 19V13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </header>
+
+  <!-- ===== URGENCY SUMMARY STRIP ===== -->
+  <div class="summary-strip" id="summaryStrip">
+    <div class="summary-pill overdue" data-filter="overdue">
+      <span class="summary-count" id="countOverdue">0</span>
+      <span class="summary-label">Overdue</span>
+    </div>
+    <div class="summary-pill soon" data-filter="soon">
+      <span class="summary-count" id="countSoon">0</span>
+      <span class="summary-label">Due Soon</span>
+    </div>
+    <div class="summary-pill ontrack" data-filter="ontrack">
+      <span class="summary-count" id="countOnTrack">0</span>
+      <span class="summary-label">On Track</span>
+    </div>
+  </div>
+
+  <!-- ===== MAIN SCROLL AREA ===== -->
+  <main id="mainScroll">
+    <div id="categoryList" class="category-list"></div>
+    <div id="emptyState" class="empty-state" hidden>
+      <div class="empty-icon">◌</div>
+      <p class="empty-title">Nothing tracked yet</p>
+      <p class="empty-sub">Tap + to add the first thing worth remembering.</p>
+    </div>
+    <div class="scroll-pad"></div>
+  </main>
+
+  <!-- ===== FLOATING ADD BUTTON ===== -->
+  <button id="fabAdd" class="fab" aria-label="Add item">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+  </button>
+
+  <!-- ===== TAB BAR ===== -->
+  <nav class="tabbar" id="tabbar">
+    <div class="tabbar-indicator" id="tabIndicator"></div>
+    <button class="tab-item active" data-tab="dashboard">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="9" rx="2" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="5" rx="2" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="12" width="7" height="9" rx="2" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="16" width="7" height="5" rx="2" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span>Home</span>
+    </button>
+    <button class="tab-item" data-tab="categories">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 3.5V12L17 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span>Categories</span>
+    </button>
+    <button class="tab-item" data-tab="insights">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 17L9 11L13 15L21 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 7H21V13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Insights</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- ===== ADD / EDIT ITEM SHEET ===== -->
+<div class="sheet-backdrop" id="itemSheetBackdrop">
+  <div class="sheet" id="itemSheet">
+    <div class="sheet-grabber"></div>
+    <div class="sheet-head">
+      <h2 id="itemSheetTitle">New item</h2>
+      <button class="text-btn danger" id="deleteItemBtn" hidden>Delete</button>
+    </div>
+
+    <div class="sheet-body">
+      <label class="field-label">Name</label>
+      <input type="text" id="itemName" class="field-input" placeholder="e.g. Haircut" maxlength="40">
+
+      <label class="field-label">Category</label>
+      <div class="chip-row" id="categoryChipRow"></div>
+
+      <label class="field-label">Icon</label>
+      <div class="icon-grid" id="iconGrid"></div>
+
+      <label class="field-label">Type</label>
+      <div class="segmented" id="typeSegment">
+        <button class="segment active" data-type="interval">Repeats every…</button>
+        <button class="segment" data-type="fixed">Fixed date</button>
+      </div>
+
+      <div id="intervalFields">
+        <label class="field-label">Repeat every</label>
+        <div class="interval-row">
+          <input type="number" id="intervalDays" class="field-input interval-input" min="1" value="30">
+          <div class="unit-segment" id="unitSegment">
+            <button class="segment active" data-mult="1">Days</button>
+            <button class="segment" data-mult="7">Weeks</button>
+            <button class="segment" data-mult="30">Months</button>
+          </div>
+        </div>
+        <label class="field-label">Last done</label>
+        <input type="date" id="lastDoneDate" class="field-input">
+      </div>
+
+      <div id="fixedFields" hidden>
+        <label class="field-label">Due date</label>
+        <input type="date" id="fixedDate" class="field-input">
+        <label class="field-label">When renewed, next date is</label>
+        <div class="segmented" id="renewSegment">
+          <button class="segment active" data-renew="365">+1 year</button>
+          <button class="segment" data-renew="30">+1 month</button>
+          <button class="segment" data-renew="0">Ask me each time</button>
+        </div>
+      </div>
+
+      <label class="field-label">Cost <span class="field-optional">(optional)</span></label>
+      <div class="cost-input-wrap">
+        <span class="cost-prefix" id="costPrefix">BHD</span>
+        <input type="number" id="itemCost" class="field-input cost-input" placeholder="0.00" min="0" step="0.01">
+      </div>
+
+      <label class="field-label">Notes <span class="field-optional">(optional)</span></label>
+      <input type="text" id="itemNotes" class="field-input" placeholder="Any detail worth remembering" maxlength="80">
+    </div>
+
+    <div class="sheet-footer">
+      <button class="btn-primary" id="saveItemBtn">Save item</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ITEM DETAIL / HISTORY SHEET ===== -->
+<div class="sheet-backdrop" id="detailSheetBackdrop">
+  <div class="sheet" id="detailSheet">
+    <div class="sheet-grabber"></div>
+    <div class="detail-head">
+      <div class="detail-icon-wrap" id="detailIconWrap"></div>
+      <div>
+        <h2 id="detailName">—</h2>
+        <p id="detailCategory" class="detail-category">—</p>
+      </div>
+      <button class="icon-btn" id="editItemBtn" aria-label="Edit">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 20L4.6 16.7C4.7 16.3 4.9 15.9 5.2 15.6L15.5 5.3C16.3 4.5 17.5 4.5 18.3 5.3L18.7 5.7C19.5 6.5 19.5 7.7 18.7 8.5L8.4 18.8C8.1 19.1 7.7 19.3 7.3 19.4L4 20Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <div class="detail-body">
+      <div class="detail-stat-row">
+        <div class="detail-stat">
+          <span class="detail-stat-num" id="detailDaysAgo">—</span>
+          <span class="detail-stat-label">days ago</span>
+        </div>
+        <div class="detail-stat">
+          <span class="detail-stat-num" id="detailDaysLeft">—</span>
+          <span class="detail-stat-label" id="detailDaysLeftLabel">days left</span>
+        </div>
+        <div class="detail-stat" id="detailCostStat">
+          <span class="detail-stat-num" id="detailCost">—</span>
+          <span class="detail-stat-label">cost</span>
+        </div>
+      </div>
+
+      <div class="detail-bar-track">
+        <div class="detail-bar-fill" id="detailBarFill"></div>
+      </div>
+
+      <p class="detail-notes" id="detailNotes" hidden></p>
+
+      <h3 class="history-title">History</h3>
+      <div class="history-list" id="historyList"></div>
+    </div>
+
+    <div class="sheet-footer">
+      <button class="btn-primary" id="logFromDetailBtn">Log as done today</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CATEGORIES MANAGER SHEET ===== -->
+<div class="sheet-backdrop" id="categorySheetBackdrop">
+  <div class="sheet" id="categorySheet">
+    <div class="sheet-grabber"></div>
+    <div class="sheet-head">
+      <h2>Categories</h2>
+    </div>
+    <div class="sheet-body">
+      <div class="category-manage-list" id="categoryManageList"></div>
+      <button class="btn-secondary" id="addCategoryBtn">+ New category</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== NEW CATEGORY MINI SHEET ===== -->
+<div class="sheet-backdrop" id="newCategoryBackdrop">
+  <div class="sheet sheet-compact" id="newCategorySheet">
+    <div class="sheet-grabber"></div>
+    <div class="sheet-head">
+      <h2 id="newCategoryTitle">New category</h2>
+    </div>
+    <div class="sheet-body">
+      <label class="field-label">Name</label>
+      <input type="text" id="newCategoryName" class="field-input" placeholder="e.g. Pets" maxlength="24">
+      <label class="field-label">Color</label>
+      <div class="color-grid" id="colorGrid"></div>
+      <label class="field-label">Icon</label>
+      <div class="icon-grid" id="categoryIconGrid"></div>
+    </div>
+    <div class="sheet-footer">
+      <button class="btn-primary" id="saveCategoryBtn">Save category</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== INSIGHTS SHEET ===== -->
+<div class="sheet-backdrop" id="insightsBackdrop">
+  <div class="sheet" id="insightsSheet">
+    <div class="sheet-grabber"></div>
+    <div class="sheet-head">
+      <h2>Insights</h2>
+    </div>
+    <div class="sheet-body">
+      <div class="insight-hero">
+        <span class="insight-hero-num" id="monthlySpend">BHD 0</span>
+        <span class="insight-hero-label">per month, recurring</span>
+      </div>
+      <div class="insight-grid" id="insightGrid"></div>
+      <h3 class="history-title">By category</h3>
+      <div class="insight-category-list" id="insightCategoryList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TOAST ===== -->
+<div class="toast" id="toast"></div>
+
+<!-- ===== CONFIRM DIALOG ===== -->
+<div class="confirm-backdrop" id="confirmBackdrop">
+  <div class="confirm-box">
+    <p id="confirmMessage">Are you sure?</p>
+    <div class="confirm-actions">
+      <button class="confirm-btn cancel" id="confirmCancel">Cancel</button>
+      <button class="confirm-btn danger" id="confirmOk">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
