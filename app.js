@@ -93,7 +93,7 @@ function seedData(){
   return { categories, items, currency: "BHD" };
 }
 
-function mkItem({ name, category, icon, type, intervalDays, lastDone, fixedDate, renewDays, cost, costVaries, notes }){
+function mkItem({ name, category, icon, type, intervalDays, lastDone, fixedDate, renewDays, cost, costVaries, notes, neverDoneYet }){
   const initialHistory = lastDone ? [{ date: lastDone, cost: cost || null }] : [];
   return {
     id: uid(),
@@ -104,6 +104,7 @@ function mkItem({ name, category, icon, type, intervalDays, lastDone, fixedDate,
     renewDays: renewDays != null ? renewDays : 365,
     cost: cost || null,
     costVaries: !!costVaries,
+    neverDoneYet: !!neverDoneYet,
     notes: notes || "",
     history: initialHistory,
     createdAt: dstr(new Date())
@@ -116,7 +117,10 @@ function todayStr(){ return dstr(new Date()); }
 function daysBetween(a,b){ return Math.round((new Date(b) - new Date(a)) / 86400000); }
 function formatShortDate(dateStr){
   const d = new Date(dateStr);
-  return d.toLocaleDateString(undefined, { month:"short", day:"numeric" });
+  const isCurrentYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString(undefined, isCurrentYear
+    ? { month:"short", day:"numeric" }
+    : { month:"short", day:"numeric", year:"numeric" });
 }
 
 // ============================================================
@@ -303,9 +307,83 @@ function renderCategoryList(){
       handleQuickLog(chk.closest(".item-card").dataset.id, chk.closest(".item-card"));
     });
   });
+
+  container.querySelectorAll(".item-swipe-wrap").forEach(setupItemSwipe);
 }
 
-// ============================================================
+// Swipe-to-delete for dashboard item cards. Dragging left reveals a red
+// delete action behind the card; releasing past the threshold snaps it
+// fully open, tapping the revealed button asks for confirmation.
+const SWIPE_DELETE_WIDTH = 88;
+function setupItemSwipe(wrap){
+  const card = wrap.querySelector(".item-card");
+  const deleteBtn = wrap.querySelector(".item-swipe-delete");
+  let startX = 0, startY = 0, currentX = 0, dragging = false, decided = false, isHorizontal = false;
+  let openOffset = 0; // 0 = closed, -SWIPE_DELETE_WIDTH = open
+
+  wrap.addEventListener("touchstart", (e) => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    currentX = openOffset;
+    dragging = true; decided = false; isHorizontal = false;
+    wrap.classList.add("dragging");
+  }, { passive:true });
+
+  wrap.addEventListener("touchmove", (e) => {
+    if (!dragging) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+
+    if (!decided){
+      if (Math.abs(dx) > 8 || Math.abs(dy) > 8){
+        isHorizontal = Math.abs(dx) > Math.abs(dy);
+        decided = true;
+      } else {
+        return;
+      }
+    }
+    if (!isHorizontal){ dragging = false; return; } // let the page scroll vertically
+
+    let next = openOffset + dx;
+    next = Math.min(0, Math.max(-SWIPE_DELETE_WIDTH * 1.15, next)); // slight overdrag resistance handled by clamp
+    currentX = next;
+    card.style.transform = `translateX(${next}px)`;
+  }, { passive:true });
+
+  wrap.addEventListener("touchend", () => {
+    if (!dragging){ return; }
+    dragging = false;
+    wrap.classList.remove("dragging");
+    if (!isHorizontal) return;
+
+    // Snap open if dragged past half the delete width, else snap closed.
+    openOffset = currentX < -SWIPE_DELETE_WIDTH / 2 ? -SWIPE_DELETE_WIDTH : 0;
+    card.style.transform = `translateX(${openOffset}px)`;
+  });
+
+  deleteBtn.addEventListener("click", () => {
+    const itemId = wrap.dataset.id;
+    const item = state.items.find(i => i.id === itemId);
+    if (!item) return;
+    showConfirm(`Delete "${esc(item.name)}"? This can't be undone.`, () => {
+      state.items = state.items.filter(i => i.id !== itemId);
+      render();
+      saveToFirestore();
+      showToast("Item deleted");
+    });
+  });
+
+  // Tapping the card itself while the delete action is revealed should
+  // close it instead of opening the detail sheet.
+  card.addEventListener("click", (e) => {
+    if (openOffset !== 0){
+      e.stopPropagation();
+      e.preventDefault();
+      openOffset = 0;
+      card.style.transform = `translateX(0px)`;
+    }
+  }, true);
+}
 // RENDER: DESKTOP SIDEBAR
 // ============================================================
 function renderSidebar(){
@@ -376,29 +454,37 @@ function renderItemCard(item, cat){
     dueText = `Due in ${s.daysLeft}d`;
   }
 
-  const lastDoneText = `Last done ${s.daysAgo}d ago · ${lastDoneLabel}`;
+  const lastDoneText = item.neverDoneYet
+    ? `Not started yet`
+    : `Last done ${s.daysAgo}d ago · ${lastDoneLabel}`;
   const costHtml = item.cost ? `<span class="item-cost">${state.currency} ${Number(item.cost).toFixed(2)}</span>` : "";
 
-  return `<div class="item-card cat-${cat.color} ${s.status === 'overdue' ? 'overdue' : ''}" data-id="${item.id}">
-    <div class="item-icon-wrap">${iconSVG(item.icon)}</div>
-    <div class="item-main">
-      <div class="item-top-row">
-        <span class="item-name">${esc(item.name)}</span>
-        <span class="item-meta ${metaClass}">${dueText}</span>
-      </div>
-      <div class="item-sub-row">
-        <div class="item-bar-track">
-          <div class="item-bar-fill ${overflowing ? 'overflowing' : ''}" style="width:${pct}%"></div>
-        </div>
-        ${costHtml}
-      </div>
-      <div class="item-date-row">
-        <span class="item-last-done">${lastDoneText}</span>
-        <span class="item-due-date">Due ${dueDateLabel}</span>
-      </div>
+  return `<div class="item-swipe-wrap" data-id="${item.id}">
+    <div class="item-swipe-delete" data-action="delete-item">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 7H20M9 7V5A2 2 0 0111 3H13A2 2 0 0115 5V7M18 7L17.3 19A2 2 0 0115.3 21H8.7A2 2 0 016.7 19L6 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Delete</span>
     </div>
-    <div class="item-check">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M5 13L9.5 17.5L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="item-card cat-${cat.color} ${s.status === 'overdue' ? 'overdue' : ''}" data-id="${item.id}">
+      <div class="item-icon-wrap">${iconSVG(item.icon)}</div>
+      <div class="item-main">
+        <div class="item-top-row">
+          <span class="item-name">${esc(item.name)}</span>
+          <span class="item-meta ${metaClass}">${dueText}</span>
+        </div>
+        <div class="item-sub-row">
+          <div class="item-bar-track">
+            <div class="item-bar-fill ${overflowing ? 'overflowing' : ''}" style="width:${pct}%"></div>
+          </div>
+          ${costHtml}
+        </div>
+        <div class="item-date-row">
+          <span class="item-last-done">${lastDoneText}</span>
+          <span class="item-due-date">Due ${dueDateLabel}</span>
+        </div>
+      </div>
+      <div class="item-check">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M5 13L9.5 17.5L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
     </div>
   </div>`;
 }
@@ -547,6 +633,7 @@ function logItemDone(item, options){
 
   if (item.type === "interval"){
     item.lastDone = today;
+    item.neverDoneYet = false;
   } else if (explicitNextDate){
     item.fixedDate = explicitNextDate;
   } else if (item.renewDays > 0){
@@ -667,6 +754,10 @@ function openItemSheet(itemId){
   if (type === "interval"){
     document.getElementById("intervalDays").value = item ? item.intervalDays : 30;
     document.getElementById("lastDoneDate").value = item ? item.lastDone : todayStr();
+    // "Haven't done this yet" only makes sense for a brand-new item with no history.
+    document.getElementById("neverDoneToggle").checked = false;
+    document.getElementById("neverDoneToggle").parentElement.hidden = !!item;
+    setNeverDoneState(false);
   } else {
     document.getElementById("fixedDate").value = item ? item.fixedDate : todayStr();
     setActiveSegment("renewSegment", item ? String(item.renewDays) : "365");
@@ -735,6 +826,10 @@ function setItemType(type){
   document.getElementById("fixedFields").hidden = type !== "fixed";
 }
 
+function setNeverDoneState(neverDone){
+  document.getElementById("lastDoneWrap").hidden = neverDone;
+}
+
 function setActiveSegment(containerId, value){
   const container = document.getElementById(containerId);
   container.querySelectorAll(".segment").forEach(s => {
@@ -755,6 +850,7 @@ function saveItem(){
   const cost = parseFloat(document.getElementById("itemCost").value) || null;
   const costVaries = document.getElementById("costVariesToggle").checked;
   const notes = document.getElementById("itemNotes").value.trim();
+  const neverDoneYet = type === "interval" && !editingItemId && document.getElementById("neverDoneToggle").checked;
 
   let itemData = { name, category, icon, type, cost, costVaries, notes };
 
@@ -762,7 +858,10 @@ function saveItem(){
     const mult = parseInt(document.querySelector("#unitSegment .segment.active").dataset.mult, 10);
     const rawDays = parseInt(document.getElementById("intervalDays").value, 10) || 1;
     itemData.intervalDays = rawDays * mult;
-    itemData.lastDone = document.getElementById("lastDoneDate").value || todayStr();
+    // "Haven't done this yet": the interval starts counting from today, and
+    // nothing is logged to history since nothing has actually happened.
+    itemData.lastDone = neverDoneYet ? todayStr() : (document.getElementById("lastDoneDate").value || todayStr());
+    itemData.neverDoneYet = neverDoneYet;
   } else {
     itemData.fixedDate = document.getElementById("fixedDate").value || todayStr();
     itemData.renewDays = parseInt(document.querySelector("#renewSegment .segment.active").dataset.renew, 10);
@@ -773,7 +872,13 @@ function saveItem(){
     Object.assign(item, itemData);
   } else {
     const newItem = mkItem(itemData);
-    if (type === "interval") { newItem.lastDone = itemData.lastDone; newItem.history = [{ date: itemData.lastDone, cost: cost || null }]; }
+    if (type === "interval") {
+      newItem.lastDone = itemData.lastDone;
+      newItem.neverDoneYet = neverDoneYet;
+      // A real logged date gets a history entry; "haven't done yet" doesn't,
+      // since nothing has actually happened — it's just the starting point.
+      newItem.history = neverDoneYet ? [] : [{ date: itemData.lastDone, cost: cost || null }];
+    }
     else { newItem.fixedDate = itemData.fixedDate; newItem.renewDays = itemData.renewDays; newItem.history = []; }
     state.items.push(newItem);
   }
@@ -817,7 +922,7 @@ function openDetail(itemId){
   document.getElementById("detailName").textContent = item.name;
   document.getElementById("detailCategory").textContent = cat.name;
 
-  document.getElementById("detailDaysAgo").textContent = `${s.daysAgo}d ago`;
+  document.getElementById("detailDaysAgo").textContent = item.neverDoneYet ? "Not yet" : `${s.daysAgo}d ago`;
   document.getElementById("detailDaysLeft").textContent = s.status === "overdue" ? `${Math.abs(s.daysLeft)}d over` : `${s.daysLeft}d left`;
   document.getElementById("detailDaysLeftLabel").textContent = s.status === "overdue" ? "Overdue" : "Due";
 
@@ -1147,6 +1252,9 @@ function wireEvents(){
   });
   document.querySelectorAll("#renewSegment .segment").forEach(seg => {
     seg.addEventListener("click", () => setActiveSegment("renewSegment", seg.dataset.renew));
+  });
+  document.getElementById("neverDoneToggle").addEventListener("change", (e) => {
+    setNeverDoneState(e.target.checked);
   });
 
   // Detail sheet

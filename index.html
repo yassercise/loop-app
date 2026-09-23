@@ -25,6 +25,7 @@
   <!-- ===== DESKTOP SIDEBAR (hidden on mobile) ===== -->
   <aside class="desktop-sidebar" id="desktopSidebar">
     <div class="sidebar-brand">
+      <img src="icon-192.png" alt="" class="sidebar-logo">
       <h1>Loop</h1>
     </div>
 
@@ -59,6 +60,7 @@
   <!-- ===== TOP BAR ===== -->
   <header class="topbar">
     <div class="topbar-title">
+      <img src="icon-192.png" alt="" class="topbar-logo">
       <h1>Loop</h1>
     </div>
   </header>
@@ -152,8 +154,15 @@
             <button class="segment" data-mult="30">Months</button>
           </div>
         </div>
-        <label class="field-label">Last done</label>
-        <input type="date" id="lastDoneDate" class="field-input">
+        <label class="toggle-row" for="neverDoneToggle" style="margin: 18px 0 8px;">
+          <span>Haven't done this yet</span>
+          <input type="checkbox" id="neverDoneToggle" class="toggle-input">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
+        <div id="lastDoneWrap">
+          <label class="field-label">Last done</label>
+          <input type="date" id="lastDoneDate" class="field-input">
+        </div>
       </div>
 
       <div id="fixedFields" hidden>

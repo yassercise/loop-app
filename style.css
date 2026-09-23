@@ -52,6 +52,7 @@
 .cat-orange { --cat: #E4680A; --cat-soft: rgba(228,104,10,0.10); }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden]{ display:none !important; }
 html, body { height: 100%; height: 100dvh; }
 body{
   margin:0;
@@ -81,11 +82,15 @@ input{ font-family: inherit; }
 
 /* ---- Top bar ---- */
 .topbar{
-  display:flex; align-items:center;
+  display:flex; align-items:center; justify-content:center;
   padding: calc(18px + var(--safe-top)) 22px 14px;
   flex-shrink:0;
 }
-.topbar-title h1{ font-size:28px; letter-spacing:-0.02em; }
+.topbar-title{
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+}
+.topbar-logo{ width:40px; height:40px; border-radius:12px; }
+.topbar-title h1{ font-size:22px; letter-spacing:-0.02em; }
 .icon-btn{
   width:40px; height:40px; border-radius:14px;
   display:flex; align-items:center; justify-content:center;
@@ -139,6 +144,28 @@ input{ font-family: inherit; }
 .category-group-count{ font-family: var(--font-mono); font-size:12px; color: var(--text-3); margin-left:auto; }
 
 .item-cards{ display:flex; flex-direction:column; gap:10px; }
+
+.item-swipe-wrap{
+  position:relative;
+  overflow:hidden;
+  border-radius: var(--radius-md);
+}
+.item-swipe-delete{
+  position:absolute; top:0; right:0; bottom:0;
+  width:88px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  background: var(--danger);
+  color:#fff;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+.item-swipe-delete svg{ width:19px; height:19px; }
+.item-swipe-delete span{ font-size:11px; font-weight:700; }
+.item-swipe-wrap .item-card{
+  position:relative;
+  transition: transform 0.25s var(--ease);
+  touch-action: pan-y;
+}
+.item-swipe-wrap.dragging .item-card{ transition:none; }
 
 /* ---- Empty state ---- */
 .empty-state{
@@ -652,8 +679,9 @@ input[type="date"].field-input::-webkit-date-and-time-value{
     border-right:1px solid var(--border);
     padding: 28px 18px 18px;
   }
-  .sidebar-brand{ padding: 0 8px 22px; }
-  .sidebar-brand h1{ font-size:22px; letter-spacing:-0.02em; }
+  .sidebar-brand{ display:flex; align-items:center; gap:10px; padding: 0 8px 22px; }
+  .sidebar-logo{ width:30px; height:30px; border-radius:9px; flex-shrink:0; }
+  .sidebar-brand h1{ font-size:20px; letter-spacing:-0.02em; }
 
   .sidebar-add-btn{
     display:flex; align-items:center; justify-content:center; gap:8px;
@@ -729,8 +757,8 @@ input[type="date"].field-input::-webkit-date-and-time-value{
   .fab, .tabbar{ display:none; }
 
   /* ---- Top bar becomes a page header ---- */
-  .topbar{ padding: 32px 40px 18px; max-width: 900px; }
-  .topbar-title h1{ display:none; } /* sidebar already shows the brand */
+  .topbar{ padding: 32px 40px 18px; max-width: 900px; justify-content:flex-start; }
+  .topbar-title{ display:none; } /* sidebar already shows the brand */
 
   .summary-strip{ padding: 0 40px 20px; max-width: 900px; gap:14px; }
   .summary-pill{ padding:16px 18px 17px; align-items:flex-start; }
